@@ -42,6 +42,9 @@ export interface AppSettings {
   statusColors: Record<Status, string>;
   archiveAfterHours: number;
   theme: "light" | "dark" | "system";
+  quickAddHotkey: string; // 変更UIはフェーズ3以降(変更時は再起動が必要)
+  closeToTray: boolean;
+  notifyTime: string; // 'HH:mm' 期限通知の発火時刻
   backupGenerations: number;
   backupDir: string | null; // null = DBと同じフォルダの backups/
 }
@@ -56,6 +59,9 @@ export const DEFAULT_APP_SETTINGS: AppSettings = {
   },
   archiveAfterHours: 24,
   theme: "light",
+  quickAddHotkey: "Ctrl+Shift+Space",
+  closeToTray: true,
+  notifyTime: "09:00",
   backupGenerations: 3,
   backupDir: null,
 };

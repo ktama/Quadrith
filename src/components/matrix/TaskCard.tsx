@@ -16,8 +16,17 @@ function dueBadge(dueDate: string): { label: string; className: string } {
   return { label, className: "bg-slate-100 text-slate-500" };
 }
 
-// カード本体(マトリクス・インボックス・ドラッグオーバーレイで共用)
-export function TaskCardBody({ task, selected }: { task: Task; selected: boolean }) {
+// カード本体(マトリクス・インボックス・カンバン・ドラッグオーバーレイで共用)
+// fluid: 親要素の幅いっぱいに広げる(カンバン用)
+export function TaskCardBody({
+  task,
+  selected,
+  fluid = false,
+}: {
+  task: Task;
+  selected: boolean;
+  fluid?: boolean;
+}) {
   const statusColors = useSettingsStore((s) => s.settings.statusColors);
   const tags = useTagStore((s) => s.tags);
   const color = statusColors[task.status];
@@ -32,7 +41,7 @@ export function TaskCardBody({ task, selected }: { task: Task; selected: boolean
         ${task.status === "doing" ? "ring-2" : ""}
         ${selected ? "outline outline-2 outline-blue-500" : ""}`}
       style={{
-        width: CARD_W,
+        width: fluid ? "100%" : CARD_W,
         borderLeft: `4px solid ${color}`,
         ...(task.status === "doing" ? ({ "--tw-ring-color": color } as CSSProperties) : {}),
       }}

@@ -5,6 +5,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { isArchived } from "../../lib/archive";
 import { dragTargets } from "../../lib/dragTargets";
+import { matchesFilters } from "../../lib/taskFilters";
 import { useDragCard } from "../../hooks/useDragCard";
 import { useSettingsStore } from "../../stores/settingsStore";
 import { useTaskStore } from "../../stores/taskStore";
@@ -35,6 +36,8 @@ export function InboxLane() {
   const tasks = useTaskStore((s) => s.tasks);
   const add = useTaskStore((s) => s.add);
   const statusFilter = useUiStore((s) => s.statusFilter);
+  const tagFilter = useUiStore((s) => s.tagFilter);
+  const searchQuery = useUiStore((s) => s.searchQuery);
   const now = useUiStore((s) => s.now);
   const dragging = useUiStore((s) => s.dragging);
   const archiveAfterHours = useSettingsStore((s) => s.settings.archiveAfterHours);
@@ -52,9 +55,9 @@ export function InboxLane() {
         (t) =>
           t.importance === null &&
           !isArchived(t, now, archiveAfterHours) &&
-          statusFilter.includes(t.status),
+          matchesFilters(t, { statuses: statusFilter, tagIds: tagFilter, query: searchQuery }),
       ),
-    [tasks, now, archiveAfterHours, statusFilter],
+    [tasks, now, archiveAfterHours, statusFilter, tagFilter, searchQuery],
   );
 
   const submit = async () => {

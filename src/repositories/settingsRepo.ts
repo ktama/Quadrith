@@ -33,6 +33,35 @@ export async function loadAppSettings(): Promise<Result<AppSettings>> {
   }
 }
 
+// AppSettings に属さない内部状態(lastNotifiedDate 等)の読み書き
+export async function getRawSetting(key: string): Promise<string | null> {
+  try {
+    const db = await getDb();
+    const rows = await db.select<{ value: string }[]>(
+      `SELECT value FROM settings WHERE key = ?`,
+      [key],
+    );
+    if (rows.length === 0) return null;
+    return JSON.parse(rows[0].value) as string;
+  } catch (e) {
+    console.error("getRawSetting failed:", e);
+    return null;
+  }
+}
+
+export async function setRawSetting(key: string, value: string): Promise<void> {
+  try {
+    const db = await getDb();
+    await db.execute(
+      `INSERT INTO settings (key, value) VALUES (?, ?)
+       ON CONFLICT(key) DO UPDATE SET value = excluded.value`,
+      [key, JSON.stringify(value)],
+    );
+  } catch (e) {
+    console.error("setRawSetting failed:", e);
+  }
+}
+
 export async function saveSetting<K extends keyof AppSettings>(
   key: K,
   value: AppSettings[K],

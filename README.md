@@ -32,8 +32,20 @@ npm run tauri build  # 配布用ビルド
 - [x] スキーママイグレーション基盤(`PRAGMA user_version`)
 - [x] 起動時の自動バックアップ(`<DBフォルダ>/backups/` に3世代保持)
 
-フェーズ2以降(トレイ常駐・グローバルホットキー・通知・アーカイブビュー・カンバン・
-クラスタ表示・設定画面/DBパス切替)は未実装。
+## 実装状況: フェーズ2
+
+- [x] グローバルホットキーでのクイック追加(既定: `Ctrl+Shift+Space`、専用小ウィンドウ)
+- [x] システムトレイ常駐(左クリックで表示、メニューから終了)・閉じるボタンでトレイへ最小化
+- [x] 期限当日の通知(Windowsトースト、既定 9:00。Rust側スケジューラ + `lastNotifiedDate` で同日二重通知を防止)
+- [x] アーカイブビュー(完了一覧・復元・ごみ箱からの復元/完全削除)
+- [x] 状態別カンバンビュー(列間ドラッグで状態変更)
+- [x] タグでの絞り込み・タイトル/メモの検索(全ビュー共通)
+- [x] 密集時のクラスタ表示(同一箇所に4枚以上 →「+N」バッジ、クリックで吹き出し展開)
+
+フェーズ3(放置タスクリマインド・再確認日通知・統計・エクスポート)と
+設定画面(DBパス切替・色カスタマイズ・ホットキー変更 UI)は未実装。
+quickAddHotkey / notifyTime / closeToTray は DB の settings テーブルの値を
+使用するため、設定画面実装前でも DB を直接編集すれば変更できる(要再起動)。
 
 ## 設計書からの意図的な差異
 
@@ -44,8 +56,10 @@ npm run tauri build  # 配布用ビルド
 - **起動時バックアップは単純ファイルコピー**([src/lib/backup.ts](src/lib/backup.ts))。
   DB を開く前(WAL 非接続)に実行するため整合性が取れる(設計書 §5.1 手順4の補足どおり)。
   load 後の手動バックアップ(フェーズ2)では `VACUUM INTO` を使うこと。
-- 使用プラグインは MVP に必要な sql / store / fs のみ。dialog / opener /
-  global-shortcut / notification / autostart はフェーズ2で追加する。
+- 使用プラグインは sql / store / fs / global-shortcut / notification
+  (+ tauri 本体の tray-icon)。dialog / opener / autostart は設定画面と同時に追加する。
+- クイック追加は専用の小ウィンドウ(label: `quickadd`)で実装。メインと同じ
+  バンドルを共用し、[main.tsx](src/main.tsx) でウィンドウラベルにより振り分ける。
 
 ## データ保存先
 

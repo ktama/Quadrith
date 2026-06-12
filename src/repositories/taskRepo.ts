@@ -194,6 +194,31 @@ export async function restore(id: string): Promise<Result<void>> {
   }
 }
 
+// ごみ箱(論理削除済み)の一覧。削除日時の新しい順。
+export async function findTrashed(): Promise<Result<Task[]>> {
+  try {
+    const db = await getDb();
+    const rows = await db.select<TaskRow[]>(
+      `${SELECT_WITH_TAGS} WHERE t.deleted_at IS NOT NULL ORDER BY t.deleted_at DESC`,
+    );
+    return ok(rows.map(rowToTask));
+  } catch (e) {
+    return err("DB_READ", "ごみ箱の読み込みに失敗しました", e);
+  }
+}
+
+// ごみ箱からの完全削除(物理削除)。
+export async function purge(id: string): Promise<Result<void>> {
+  try {
+    const db = await getDb();
+    await db.execute(`DELETE FROM task_tags WHERE task_id = ?`, [id]);
+    await db.execute(`DELETE FROM tasks WHERE id = ?`, [id]);
+    return ok(undefined);
+  } catch (e) {
+    return err("DB_WRITE", "完全削除に失敗しました", e);
+  }
+}
+
 // 論理削除から30日経過したレコードを物理削除する(起動時に呼ぶ)。
 // plugin-sql は接続プールを使うため PRAGMA foreign_keys に頼らず task_tags を明示削除する。
 export async function purgeExpired(): Promise<Result<number>> {

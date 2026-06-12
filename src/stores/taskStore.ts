@@ -10,6 +10,7 @@ import { useUiStore } from "./uiStore";
 
 interface TaskState {
   tasks: Task[];
+  trashed: Task[]; // ごみ箱(アーカイブビューで表示時に取得)
   loading: boolean;
   lastRemoved: Task | null;
 
@@ -21,6 +22,9 @@ interface TaskState {
   setTags: (id: string, tagIds: string[]) => Promise<void>;
   remove: (id: string) => Promise<void>;
   undoRemove: () => Promise<void>;
+  loadTrashed: () => Promise<void>;
+  restoreFromTrash: (id: string) => Promise<void>;
+  purgeForever: (id: string) => Promise<void>;
 }
 
 function sortByCreated(tasks: Task[]): Task[] {
@@ -29,6 +33,7 @@ function sortByCreated(tasks: Task[]): Task[] {
 
 export const useTaskStore = create<TaskState>()((set, get) => ({
   tasks: [],
+  trashed: [],
   loading: false,
   lastRemoved: null,
 
@@ -123,8 +128,47 @@ export const useTaskStore = create<TaskState>()((set, get) => ({
     set({ lastRemoved: null });
     const res = await taskRepo.restore(removed.id);
     if (res.ok) {
-      set((s) => ({ tasks: sortByCreated([...s.tasks, { ...removed, deletedAt: null }]) }));
+      set((s) => ({
+        tasks: sortByCreated([...s.tasks, { ...removed, deletedAt: null }]),
+        trashed: s.trashed.filter((t) => t.id !== removed.id),
+      }));
     } else {
+      useToastStore.getState().show(res.error.message, { kind: "error" });
+    }
+  },
+
+  loadTrashed: async () => {
+    const res = await taskRepo.findTrashed();
+    if (res.ok) {
+      set({ trashed: res.value });
+    } else {
+      useToastStore.getState().show(res.error.message, { kind: "error" });
+    }
+  },
+
+  // ごみ箱からの復元(仕様書 §4.5)
+  restoreFromTrash: async (id) => {
+    const target = get().trashed.find((t) => t.id === id);
+    if (!target) return;
+    set((s) => ({ trashed: s.trashed.filter((t) => t.id !== id) }));
+    const res = await taskRepo.restore(id);
+    if (res.ok) {
+      set((s) => ({ tasks: sortByCreated([...s.tasks, { ...target, deletedAt: null }]) }));
+      useToastStore.getState().show(`「${target.title}」を復元しました`);
+    } else {
+      set((s) => ({ trashed: [target, ...s.trashed] }));
+      useToastStore.getState().show(res.error.message, { kind: "error" });
+    }
+  },
+
+  // ごみ箱からの完全削除(取り消し不可)
+  purgeForever: async (id) => {
+    const target = get().trashed.find((t) => t.id === id);
+    if (!target) return;
+    set((s) => ({ trashed: s.trashed.filter((t) => t.id !== id) }));
+    const res = await taskRepo.purge(id);
+    if (!res.ok) {
+      set((s) => ({ trashed: [target, ...s.trashed] }));
       useToastStore.getState().show(res.error.message, { kind: "error" });
     }
   },

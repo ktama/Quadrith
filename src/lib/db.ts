@@ -5,6 +5,7 @@
 import Database from "@tauri-apps/plugin-sql";
 import { load as loadStore } from "@tauri-apps/plugin-store";
 import { appDataDir, join } from "@tauri-apps/api/path";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 import { exists, mkdir } from "@tauri-apps/plugin-fs";
 import { applyMigrations } from "./migrations";
 import { backupBeforeOpen } from "./backup";
@@ -22,8 +23,12 @@ export function getDb(): Promise<Database> {
 async function openDb(): Promise<Database> {
   const path = await resolveDbPath();
 
-  // マイグレーション前の必須バックアップを兼ねる(仕様書 §7.4)
-  await backupBeforeOpen(path, DEFAULT_APP_SETTINGS.backupGenerations);
+  // マイグレーション前の必須バックアップを兼ねる(仕様書 §7.4)。
+  // クイック追加ウィンドウからの getDb はメイン側で DB 接続済み(WAL 稼働中)の
+  // 可能性が高く、ファイルコピーが安全でないためメインウィンドウのみ実行する。
+  if (getCurrentWindow().label === "main") {
+    await backupBeforeOpen(path, DEFAULT_APP_SETTINGS.backupGenerations);
+  }
 
   const loaded = await Database.load(`sqlite:${path}`);
   await applyMigrations(loaded);
