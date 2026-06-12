@@ -1,0 +1,15 @@
+@import "tailwindcss";
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: "Segoe UI", "Yu Gothic UI", "Meiryo", sans-serif;
+  background: #f1f5f9;
+  color: #1e293b;
+  overscroll-behavior: none;
+}

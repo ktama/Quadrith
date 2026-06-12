@@ -1,0 +1,51 @@
+// DB内 settings テーブル(アプリ設定層、仕様書 §7.1)
+// key ごとに JSON 文字列を保存する。
+
+import { getDb } from "../lib/db";
+import { err, ok, type Result } from "../lib/result";
+import { DEFAULT_APP_SETTINGS, type AppSettings } from "../types/models";
+
+export async function loadAppSettings(): Promise<Result<AppSettings>> {
+  try {
+    const db = await getDb();
+    const rows = await db.select<{ key: string; value: string }[]>(
+      `SELECT key, value FROM settings`,
+    );
+    const stored: Record<string, unknown> = {};
+    for (const row of rows) {
+      try {
+        stored[row.key] = JSON.parse(row.value);
+      } catch {
+        // 壊れた値は無視して既定値にフォールバック
+      }
+    }
+    const merged: AppSettings = {
+      ...DEFAULT_APP_SETTINGS,
+      ...stored,
+      statusColors: {
+        ...DEFAULT_APP_SETTINGS.statusColors,
+        ...(stored.statusColors as Record<string, string> | undefined),
+      },
+    };
+    return ok(merged);
+  } catch (e) {
+    return err("DB_READ", "設定の読み込みに失敗しました", e);
+  }
+}
+
+export async function saveSetting<K extends keyof AppSettings>(
+  key: K,
+  value: AppSettings[K],
+): Promise<Result<void>> {
+  try {
+    const db = await getDb();
+    await db.execute(
+      `INSERT INTO settings (key, value) VALUES (?, ?)
+       ON CONFLICT(key) DO UPDATE SET value = excluded.value`,
+      [key, JSON.stringify(value)],
+    );
+    return ok(undefined);
+  } catch (e) {
+    return err("DB_WRITE", "設定の保存に失敗しました", e);
+  }
+}
