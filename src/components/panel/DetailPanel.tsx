@@ -72,6 +72,7 @@ function PanelInner({ task }: { task: Task }) {
           className="text-slate-400 hover:text-slate-600 text-lg leading-none px-1"
           onClick={() => select(null)}
           title="閉じる"
+          aria-label="詳細パネルを閉じる"
         >
           ×
         </button>

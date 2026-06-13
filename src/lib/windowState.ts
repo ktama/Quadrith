@@ -1,9 +1,16 @@
 // ウィンドウ位置・サイズの保存/復元(設計書 §3 BootstrapSettings.window)
 // メインウィンドウ専用。settings.json(ブートストラップ層)に物理座標で保存する。
+// モニタ構成が変わって復元位置が画面外になる事故を防ぐためクランプする(改善 #4)。
 // 失敗してもアプリは継続する(設計書 §7)。
 
-import { getCurrentWindow, PhysicalPosition, PhysicalSize } from "@tauri-apps/api/window";
+import {
+  availableMonitors,
+  getCurrentWindow,
+  PhysicalPosition,
+  PhysicalSize,
+} from "@tauri-apps/api/window";
 import { load as loadStore } from "@tauri-apps/plugin-store";
+import { clampWindowToMonitors } from "./windowClamp";
 import type { WindowState } from "../types/models";
 
 const KEY = "window";
@@ -14,8 +21,15 @@ async function store() {
 
 export async function restoreWindowState(): Promise<void> {
   try {
-    const w = await (await store()).get<WindowState>(KEY);
-    if (!w) return;
+    const saved = await (await store()).get<WindowState>(KEY);
+    if (!saved) return;
+    const monitors = (await availableMonitors()).map((m) => ({
+      x: m.position.x,
+      y: m.position.y,
+      width: m.size.width,
+      height: m.size.height,
+    }));
+    const w = clampWindowToMonitors(saved, monitors);
     const win = getCurrentWindow();
     await win.setSize(new PhysicalSize(w.width, w.height));
     await win.setPosition(new PhysicalPosition(w.x, w.y));
@@ -36,12 +50,7 @@ export async function watchWindowState(): Promise<() => void> {
         const pos = await win.outerPosition();
         const size = await win.innerSize();
         if (size.width === 0 || size.height === 0) return;
-        const value: WindowState = {
-          x: pos.x,
-          y: pos.y,
-          width: size.width,
-          height: size.height,
-        };
+        const value: WindowState = { x: pos.x, y: pos.y, width: size.width, height: size.height };
         const s = await store();
         await s.set(KEY, value);
         await s.save();

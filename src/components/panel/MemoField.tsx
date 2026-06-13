@@ -3,9 +3,25 @@
 // 内容があるときはプレビューで開き、クリックで編集に入る。
 // react-markdown は dangerouslySetInnerHTML を使わないため XSS 安全。
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import { openUrl } from "@tauri-apps/plugin-opener";
+
+// Markdown 内のリンクは WebView を遷移させず外部ブラウザで開く(SPA が消えるのを防ぐ)
+function ExternalLink({ href, children }: { href?: string; children?: ReactNode }) {
+  return (
+    <a
+      href={href}
+      onClick={(e) => {
+        e.preventDefault();
+        if (href) void openUrl(href);
+      }}
+    >
+      {children}
+    </a>
+  );
+}
 
 export function MemoField({
   value,
@@ -55,7 +71,9 @@ export function MemoField({
           title="クリックで編集"
         >
           {value.trim() ? (
-            <ReactMarkdown remarkPlugins={[remarkGfm]}>{value}</ReactMarkdown>
+            <ReactMarkdown remarkPlugins={[remarkGfm]} components={{ a: ExternalLink }}>
+              {value}
+            </ReactMarkdown>
           ) : (
             <span className="text-xs text-slate-400">メモはありません(クリックで追加)</span>
           )}

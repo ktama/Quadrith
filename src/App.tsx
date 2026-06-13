@@ -15,9 +15,17 @@ import { DetailPanel } from "./components/panel/DetailPanel";
 import { SettingsView } from "./components/settings/SettingsView";
 import { StatsView } from "./components/stats/StatsView";
 import { listBackups, restoreBackup } from "./lib/backup";
-import { checkDbAvailability, getStoredDbPath, recoverDbPath, type RecoverMode } from "./lib/db";
+import {
+  checkDbAvailability,
+  getBackupDir,
+  getStoredDbPath,
+  readThemePref,
+  recoverDbPath,
+  type RecoverMode,
+} from "./lib/db";
 import { initCloseToTray, registerQuickAddHotkey, syncAutostart } from "./lib/desktop";
 import { listenNotificationFired, syncDueNotifications, todayLocal } from "./lib/notifications";
+import { applyTheme } from "./lib/theme";
 import { restoreWindowState, watchWindowState } from "./lib/windowState";
 import { useSettingsStore } from "./stores/settingsStore";
 import { useTagStore } from "./stores/tagStore";
@@ -68,7 +76,10 @@ export default function App() {
       void syncAutostart(appSettings.autoStart);
       cleanups.push(await initCloseToTray());
       cleanups.push(await listenNotificationFired());
-      cleanups.push(await listen("quick-task-added", () => void useTaskStore.getState().load()));
+      // クイック追加ウィンドウは DB を持たず、本体にイベントで依頼する(接続を1本に)
+      cleanups.push(
+        await listen<string>("quick-add-submit", (e) => void useTaskStore.getState().add(e.payload)),
+      );
       cleanups.push(await watchWindowState());
       await syncDueNotifications();
 
@@ -111,8 +122,8 @@ export default function App() {
       } catch (e) {
         if (cancelled) return;
         // DB open/マイグレーション失敗 → バックアップ復元を提示(仕様書 §7, §5.1-5)
-        const path = await getStoredDbPath().catch(() => "");
-        const list = path ? await listBackups(path).catch(() => []) : [];
+        const dir = await getBackupDir().catch(() => "");
+        const list = dir ? await listBackups(dir).catch(() => []) : [];
         if (cancelled) return;
         setErrorMsg(String(e));
         setBackups(list);
@@ -122,6 +133,9 @@ export default function App() {
     runInitRef.current = runInit;
 
     (async () => {
+      // テーマを DB ロード前に適用してチラつき(FOUC)を防ぐ(ブートストラップ層のキャッシュ)
+      const cachedTheme = await readThemePref().catch(() => null);
+      if (cachedTheme) applyTheme(cachedTheme);
       // ウィンドウ位置・サイズの復元(設計書 §3)
       await restoreWindowState();
       // 起動時のDB存在チェック(仕様書 §7.4)
@@ -151,7 +165,8 @@ export default function App() {
   const handleRestore = async (name: string) => {
     setBusy(true);
     const path = await getStoredDbPath().catch(() => "");
-    if (path) await restoreBackup(path, name).catch(() => {});
+    const dir = await getBackupDir().catch(() => "");
+    if (path && dir) await restoreBackup(path, dir, name).catch(() => {});
     setBusy(false);
     await runInitRef.current();
   };
@@ -196,9 +211,12 @@ export default function App() {
                 view === "settings" ? "text-blue-500" : "text-slate-500 dark:text-slate-300"
               }`}
               title="設定"
+              aria-label="設定"
               onClick={() => setView("settings")}
             >
-              <span className="text-base">⚙</span>
+              <span className="text-base" aria-hidden="true">
+                ⚙
+              </span>
             </button>
           </div>
         </div>

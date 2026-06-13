@@ -19,6 +19,7 @@ function task(p: Partial<Task>): Task {
     reviewAt: null,
     createdAt: "2026-01-01T00:00:00.000Z",
     updatedAt: "2026-01-02T00:00:00.000Z",
+    lastProgressAt: "2026-01-02T00:00:00.000Z",
     completedAt: null,
     deletedAt: null,
     tagIds: ["tag-1", "tag-2"],

@@ -36,6 +36,7 @@ export function ClusterBadge({
           flex items-center justify-center select-none"
         style={{ left: cluster.x, top: cluster.y }}
         title={`${cluster.taskIds.length}件のタスク`}
+        aria-label={`密集した${cluster.taskIds.length}件のタスクを開く`}
         onClick={() => setOpenClusterId(open ? null : cluster.id)}
       >
         +{cluster.taskIds.length}

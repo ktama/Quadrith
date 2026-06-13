@@ -21,6 +21,7 @@
     "dialog:default",
     "opener:default",
     "opener:allow-reveal-item-in-dir",
+    "opener:allow-open-url",
     "autostart:allow-enable",
     "autostart:allow-disable",
     "autostart:allow-is-enabled",

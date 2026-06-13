@@ -5,13 +5,16 @@
 
 import Database from "@tauri-apps/plugin-sql";
 import { load as loadStore } from "@tauri-apps/plugin-store";
-import { appDataDir, join } from "@tauri-apps/api/path";
+import { appDataDir, dirname, join } from "@tauri-apps/api/path";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { applyMigrations } from "./migrations";
 import { backupBeforeOpen } from "./backup";
 import { fsCopyFile, fsExists, fsMakeDir, fsRemoveFile } from "./fsops";
 import { err, ok, type Result } from "./result";
-import { DEFAULT_APP_SETTINGS } from "../types/models";
+import { planSwitch, type SwitchMode } from "./switchPlan";
+import { DEFAULT_APP_SETTINGS, type AppSettings } from "../types/models";
+
+export type { SwitchMode } from "./switchPlan";
 
 let db: Database | null = null;
 let opening: Promise<Database> | null = null;
@@ -40,7 +43,7 @@ async function openDb(): Promise<Database> {
   // 可能性が高く、ファイルコピーが安全でないためメインウィンドウのみ実行する。
   // 世代数は DB を開く前に必要なため settings.json(ブートストラップ層)に持つ。
   if (getCurrentWindow().label === "main") {
-    await backupBeforeOpen(path, await readBackupGenerations());
+    await backupBeforeOpen(path, await getBackupDir(), await readBackupGenerations());
   }
 
   const loaded = await Database.load(`sqlite:${path}`);
@@ -56,12 +59,41 @@ async function readBackupGenerations(): Promise<number> {
   return typeof n === "number" && n >= 1 ? n : DEFAULT_APP_SETTINGS.backupGenerations;
 }
 
-// 起動時バックアップの世代数は DB を開く前に必要なため settings.json にも書く。
-// (DB 内 settings テーブルとの二重持ちだが、ブートストラップ層が正となる)
+// バックアップ保存先。設定の backupDir(ブートストラップ層にミラー)があればそれを、
+// 無ければ DB と同じフォルダの backups/ を返す。起動時・手動・復元で共通に使う。
+export async function getBackupDir(): Promise<string> {
+  const store = await loadStore("settings.json", { autoSave: true, defaults: {} });
+  const custom = await store.get<string | null>("backupDir");
+  if (custom) return custom;
+  return join(await dirname(await getStoredDbPath()), "backups");
+}
+
+// バックアップの世代数・保存先・テーマは「DB を開く前」や「DB を開けない時」に
+// 必要になるため、DB 内 settings に加えて settings.json(ブートストラップ層)へ
+// もミラーする。ブートストラップ層が正となる。
 export async function persistBackupGenerations(n: number): Promise<void> {
   const store = await loadStore("settings.json", { autoSave: true, defaults: {} });
   await store.set("backupGenerations", n);
   await store.save();
+}
+
+export async function persistBackupDir(dir: string | null): Promise<void> {
+  const store = await loadStore("settings.json", { autoSave: true, defaults: {} });
+  await store.set("backupDir", dir);
+  await store.save();
+}
+
+// テーマは起動時のチラつき(FOUC)防止のため DB ロード前に読めるようミラーする。
+export async function persistThemePref(theme: AppSettings["theme"]): Promise<void> {
+  const store = await loadStore("settings.json", { autoSave: true, defaults: {} });
+  await store.set("theme", theme);
+  await store.save();
+}
+
+export async function readThemePref(): Promise<AppSettings["theme"] | null> {
+  const store = await loadStore("settings.json", { autoSave: true, defaults: {} });
+  const t = await store.get<string>("theme");
+  return t === "light" || t === "dark" || t === "system" ? t : null;
 }
 
 // ブートストラップ設定(settings.json)から DB パスを取得。未設定なら既定値を書き込む。
@@ -132,9 +164,7 @@ export async function closeDb(): Promise<void> {
   opening = null;
 }
 
-export type SwitchMode = "move" | "createNew" | "openExisting" | "overwrite";
-
-// DBパス切替(仕様書 §7.3 / 設計書 §4.1)。
+// DBパス切替(仕様書 §7.3 / 設計書 §4.1)。モード別のファイル操作は planSwitch が決める。
 //   move        … 現在のデータを新パスへコピーして移動(成功後に旧ファイル削除)
 //   createNew   … 新パスに空の DB を作成(現在のデータは旧パスに残す)
 //   openExisting… 新パスにある既存 DB をそのまま開く
@@ -143,21 +173,21 @@ export type SwitchMode = "move" | "createNew" | "openExisting" | "overwrite";
 export async function switchDbPath(newPath: string, mode: SwitchMode): Promise<Result<void>> {
   const oldPath = currentPath ?? (await resolveDbPath());
   if (newPath === oldPath) return ok(undefined);
+  const plan = planSwitch(mode);
 
   try {
     // 1. 旧 DB をフラッシュして閉じる(チェックポイントで単一ファイル化)
     await closeDb();
 
     // 2. モードに応じたファイル操作
-    if (mode === "move") {
-      await fsCopyFile(oldPath, newPath);
-    } else if (mode === "overwrite") {
+    if (plan.removeExistingNew) {
       await fsRemoveFile(newPath);
       await fsRemoveFile(newPath + "-wal");
       await fsRemoveFile(newPath + "-shm");
+    }
+    if (plan.copyOldToNew) {
       await fsCopyFile(oldPath, newPath);
     }
-    // createNew / openExisting はファイル操作不要(load 時に作成 or 既存を開く)
 
     // 3. 新パスで開く → マイグレーション自動適用
     const loaded = await Database.load(`sqlite:${newPath}`);
@@ -170,7 +200,7 @@ export async function switchDbPath(newPath: string, mode: SwitchMode): Promise<R
     await persistDbPath(newPath);
 
     // move 成功時のみ旧ファイルを削除(3ファイルセット)
-    if (mode === "move") {
+    if (plan.deleteOldAfter) {
       await fsRemoveFile(oldPath);
       await fsRemoveFile(oldPath + "-wal");
       await fsRemoveFile(oldPath + "-shm");

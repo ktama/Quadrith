@@ -45,9 +45,12 @@ export function Reminders() {
       <button
         className="relative w-8 h-8 rounded-full hover:bg-slate-100 dark:hover:bg-slate-700 flex items-center justify-center text-slate-500 dark:text-slate-300"
         title="リマインド"
+        aria-label={count > 0 ? `リマインド ${count}件` : "リマインド"}
         onClick={() => setOpen((o) => !o)}
       >
-        <span className="text-base">🔔</span>
+        <span className="text-base" aria-hidden="true">
+          🔔
+        </span>
         {count > 0 && (
           <span className="absolute -top-0.5 -right-0.5 min-w-4 h-4 px-1 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center">
             {count}

@@ -16,6 +16,7 @@ interface TaskRow {
   review_at: string | null;
   created_at: string;
   updated_at: string;
+  last_progress_at: string | null;
   completed_at: string | null;
   deleted_at: string | null;
   tag_ids: string | null;
@@ -38,6 +39,7 @@ function rowToTask(r: TaskRow): Task {
     reviewAt: r.review_at,
     createdAt: r.created_at,
     updatedAt: r.updated_at,
+    lastProgressAt: r.last_progress_at ?? r.updated_at,
     completedAt: r.completed_at,
     deletedAt: r.deleted_at,
     tagIds: r.tag_ids ? r.tag_ids.split(",") : [],
@@ -56,7 +58,15 @@ export interface CreateTaskInput {
 export type TaskPatch = Partial<
   Pick<
     Task,
-    "title" | "memo" | "status" | "importance" | "urgency" | "dueDate" | "reviewAt" | "completedAt"
+    | "title"
+    | "memo"
+    | "status"
+    | "importance"
+    | "urgency"
+    | "dueDate"
+    | "reviewAt"
+    | "completedAt"
+    | "lastProgressAt"
   >
 >;
 
@@ -69,6 +79,7 @@ const COLUMN_MAP = {
   dueDate: "due_date",
   reviewAt: "review_at",
   completedAt: "completed_at",
+  lastProgressAt: "last_progress_at",
 } as const;
 
 // 論理削除されていない全タスク(アーカイブ済み含む)。
@@ -111,6 +122,7 @@ export async function create(input: CreateTaskInput): Promise<Result<Task>> {
       reviewAt: null,
       createdAt: now,
       updatedAt: now,
+      lastProgressAt: now,
       completedAt: null,
       deletedAt: null,
       tagIds: [],
@@ -118,8 +130,8 @@ export async function create(input: CreateTaskInput): Promise<Result<Task>> {
     await db.execute(
       `INSERT INTO tasks
          (id, title, memo, importance, urgency, status,
-          due_date, review_at, created_at, updated_at, completed_at, deleted_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, NULL)`,
+          due_date, review_at, created_at, updated_at, last_progress_at, completed_at, deleted_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, NULL)`,
       [
         task.id,
         task.title,
@@ -131,6 +143,7 @@ export async function create(input: CreateTaskInput): Promise<Result<Task>> {
         task.reviewAt,
         task.createdAt,
         task.updatedAt,
+        task.lastProgressAt,
       ],
     );
     return ok(task);
@@ -139,7 +152,12 @@ export async function create(input: CreateTaskInput): Promise<Result<Task>> {
   }
 }
 
-export async function update(id: string, patch: TaskPatch): Promise<Result<void>> {
+// updatedAt はストアの楽観更新と一致させるため、呼び出し側のタイムスタンプを受け取る。
+export async function update(
+  id: string,
+  patch: TaskPatch,
+  updatedAt: string = new Date().toISOString(),
+): Promise<Result<void>> {
   try {
     const sets: string[] = [];
     const values: unknown[] = [];
@@ -151,7 +169,7 @@ export async function update(id: string, patch: TaskPatch): Promise<Result<void>
     }
     if (sets.length === 0) return ok(undefined);
     sets.push("updated_at = ?");
-    values.push(new Date().toISOString(), id);
+    values.push(updatedAt, id);
 
     const db = await getDb();
     await db.execute(`UPDATE tasks SET ${sets.join(", ")} WHERE id = ?`, values);
@@ -162,17 +180,19 @@ export async function update(id: string, patch: TaskPatch): Promise<Result<void>
 }
 
 // ドラッグ確定(pointerup)時専用。ドラッグ中は呼ばないこと(設計書 §4.2)。
+// 配置変更は「進捗」ではないため last_progress_at は更新しない(放置リマインド §8)。
 export async function updatePosition(
   id: string,
   importance: number | null,
   urgency: number | null,
+  updatedAt: string = new Date().toISOString(),
 ): Promise<Result<void>> {
   try {
     const db = await getDb();
     await db.execute(`UPDATE tasks SET importance = ?, urgency = ?, updated_at = ? WHERE id = ?`, [
       importance,
       urgency,
-      new Date().toISOString(),
+      updatedAt,
       id,
     ]);
     return ok(undefined);
@@ -181,10 +201,12 @@ export async function updatePosition(
   }
 }
 
-export async function softDelete(id: string): Promise<Result<void>> {
+export async function softDelete(
+  id: string,
+  now: string = new Date().toISOString(),
+): Promise<Result<void>> {
   try {
     const db = await getDb();
-    const now = new Date().toISOString();
     await db.execute(`UPDATE tasks SET deleted_at = ?, updated_at = ? WHERE id = ?`, [now, now, id]);
     return ok(undefined);
   } catch (e) {
@@ -192,11 +214,14 @@ export async function softDelete(id: string): Promise<Result<void>> {
   }
 }
 
-export async function restore(id: string): Promise<Result<void>> {
+export async function restore(
+  id: string,
+  updatedAt: string = new Date().toISOString(),
+): Promise<Result<void>> {
   try {
     const db = await getDb();
     await db.execute(`UPDATE tasks SET deleted_at = NULL, updated_at = ? WHERE id = ?`, [
-      new Date().toISOString(),
+      updatedAt,
       id,
     ]);
     return ok(undefined);

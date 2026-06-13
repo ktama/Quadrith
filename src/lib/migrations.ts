@@ -55,7 +55,19 @@ const MIGRATIONS: Migration[] = [
       )`,
     ],
   },
+  {
+    version: 2,
+    description: "add last_progress_at for neglect reminder",
+    statements: [
+      // 「進捗」のあった日時。放置リマインドの基準(ドラッグやタグ編集では更新しない)
+      `ALTER TABLE tasks ADD COLUMN last_progress_at TEXT`,
+      // 既存行は更新日時で初期化する
+      `UPDATE tasks SET last_progress_at = updated_at WHERE last_progress_at IS NULL`,
+    ],
+  },
 ];
+
+export const MIGRATIONS_FOR_TEST = MIGRATIONS;
 
 export async function applyMigrations(db: Database): Promise<void> {
   const rows = await db.select<{ user_version: number }[]>("PRAGMA user_version");

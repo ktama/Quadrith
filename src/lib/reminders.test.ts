@@ -18,6 +18,7 @@ function task(p: Partial<Task>): Task {
     reviewAt: null,
     createdAt: new Date(NOW).toISOString(),
     updatedAt: new Date(NOW).toISOString(),
+    lastProgressAt: new Date(NOW).toISOString(),
     completedAt: null,
     deletedAt: null,
     tagIds: [],
@@ -54,26 +55,37 @@ describe("computeReminders", () => {
     expect(items.filter((i) => i.kind === "review")).toHaveLength(2);
   });
 
-  it("flags stale Q2 tasks after the threshold", () => {
+  it("flags stale Q2 tasks after the threshold (by lastProgressAt)", () => {
     const stale = task({
       importance: 0.9,
       urgency: 0.1, // Q2
-      updatedAt: new Date(NOW - 20 * DAY).toISOString(),
+      lastProgressAt: new Date(NOW - 20 * DAY).toISOString(),
     });
     const fresh = task({
       importance: 0.9,
       urgency: 0.1,
-      updatedAt: new Date(NOW - 3 * DAY).toISOString(),
+      lastProgressAt: new Date(NOW - 3 * DAY).toISOString(),
     });
     const items = computeReminders([stale, fresh], TODAY, NOW);
     expect(items.filter((i) => i.kind === "stale")).toHaveLength(1);
+  });
+
+  it("does not reset the stale timer on position/tag edits (updatedAt is recent)", () => {
+    // 放置中だが直近にドラッグ等で updatedAt は新しい → それでも lastProgressAt で検出
+    const stale = task({
+      importance: 0.9,
+      urgency: 0.1,
+      updatedAt: new Date(NOW).toISOString(),
+      lastProgressAt: new Date(NOW - 30 * DAY).toISOString(),
+    });
+    expect(computeReminders([stale], TODAY, NOW).filter((i) => i.kind === "stale")).toHaveLength(1);
   });
 
   it("does not flag stale for non-Q2 quadrants", () => {
     const q1 = task({
       importance: 0.9,
       urgency: 0.9, // Q1
-      updatedAt: new Date(NOW - 40 * DAY).toISOString(),
+      lastProgressAt: new Date(NOW - 40 * DAY).toISOString(),
     });
     expect(computeReminders([q1], TODAY, NOW).filter((i) => i.kind === "stale")).toHaveLength(0);
   });
@@ -97,7 +109,7 @@ describe("notifiableReminders", () => {
       [
         task({ dueDate: TODAY }),
         task({ reviewAt: TODAY, status: "pending" }),
-        task({ importance: 0.9, urgency: 0.1, updatedAt: new Date(NOW - 30 * DAY).toISOString() }),
+        task({ importance: 0.9, urgency: 0.1, lastProgressAt: new Date(NOW - 30 * DAY).toISOString() }),
       ],
       TODAY,
       NOW,

@@ -25,6 +25,7 @@ interface TaskState {
   loadTrashed: () => Promise<void>;
   restoreFromTrash: (id: string) => Promise<void>;
   purgeForever: (id: string) => Promise<void>;
+  stripTag: (tagId: string) => void;
 }
 
 function sortByCreated(tasks: Task[]): Task[] {
@@ -61,12 +62,14 @@ export const useTaskStore = create<TaskState>()((set, get) => ({
     }
   },
 
+  // updatedAt はストアと DB で同一値になるよう、ここで生成して repo へ渡す。
   patch: async (id, partial) => {
     const prev = get().tasks.find((t) => t.id === id);
     if (!prev) return;
-    const next: Task = { ...prev, ...partial, updatedAt: new Date().toISOString() };
+    const now = new Date().toISOString();
+    const next: Task = { ...prev, ...partial, updatedAt: now };
     set((s) => ({ tasks: s.tasks.map((t) => (t.id === id ? next : t)) }));
-    const res = await taskRepo.update(id, partial);
+    const res = await taskRepo.update(id, partial, now);
     if (!res.ok) {
       set((s) => ({ tasks: s.tasks.map((t) => (t.id === id ? prev : t)) }));
       useToastStore.getState().show(res.error.message, { kind: "error" });
@@ -74,21 +77,25 @@ export const useTaskStore = create<TaskState>()((set, get) => ({
   },
 
   // ドラッグ確定時の座標保存。null はインボックスへの差し戻し。
+  // 配置変更は「進捗」ではないため lastProgressAt は据え置く(放置リマインド)。
   moveTo: async (id, importance, urgency) => {
     const prev = get().tasks.find((t) => t.id === id);
     if (!prev) return;
-    const next: Task = { ...prev, importance, urgency, updatedAt: new Date().toISOString() };
+    const now = new Date().toISOString();
+    const next: Task = { ...prev, importance, urgency, updatedAt: now };
     set((s) => ({ tasks: s.tasks.map((t) => (t.id === id ? next : t)) }));
-    const res = await taskRepo.updatePosition(id, importance, urgency);
+    const res = await taskRepo.updatePosition(id, importance, urgency, now);
     if (!res.ok) {
       set((s) => ({ tasks: s.tasks.map((t) => (t.id === id ? prev : t)) }));
       useToastStore.getState().show(res.error.message, { kind: "error" });
     }
   },
 
+  // 状態変更は「進捗」とみなし lastProgressAt も更新する(放置リマインドの基準)。
   setStatus: async (id, status) => {
-    const completedAt = status === "done" ? new Date().toISOString() : null;
-    await get().patch(id, { status, completedAt });
+    const now = new Date().toISOString();
+    const completedAt = status === "done" ? now : null;
+    await get().patch(id, { status, completedAt, lastProgressAt: now });
   },
 
   setTags: async (id, tagIds) => {
@@ -172,4 +179,15 @@ export const useTaskStore = create<TaskState>()((set, get) => ({
       useToastStore.getState().show(res.error.message, { kind: "error" });
     }
   },
+
+  // タグ削除時に、メモリ上の全タスクから当該タグを取り除く(tagStore から呼ぶ)
+  stripTag: (tagId) =>
+    set((s) => ({
+      tasks: s.tasks.map((t) =>
+        t.tagIds.includes(tagId) ? { ...t, tagIds: t.tagIds.filter((x) => x !== tagId) } : t,
+      ),
+      trashed: s.trashed.map((t) =>
+        t.tagIds.includes(tagId) ? { ...t, tagIds: t.tagIds.filter((x) => x !== tagId) } : t,
+      ),
+    })),
 }));

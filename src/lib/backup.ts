@@ -3,22 +3,22 @@
 //   強制終了で -wal/-shm が残っている場合に備え3ファイルセットでコピーする。
 // - 手動(backupNow): DB を開いた後なので VACUUM INTO で単一ファイルに書き出す
 //   (設計書 §5.1 手順4の補足どおり、load 後はコピーではなく VACUUM INTO)。
+// 保存先(dir)は呼び出し側が解決して渡す(設定の backupDir を尊重するため。db.ts getBackupDir)。
 // ファイル操作は任意パス(Dropbox 等)に対応するため Rust の fsops 経由で行う。
 
 import type Database from "@tauri-apps/plugin-sql";
-import { dirname, join } from "@tauri-apps/api/path";
+import { join } from "@tauri-apps/api/path";
 import { fsCopyFile, fsExists, fsListDir, fsMakeDir, fsRemoveFile } from "./fsops";
 
 const BACKUP_FILE_RE = /^tasks_\d{8}_\d{6}\.db$/;
 
-async function resolveBackupDir(dbPath: string, backupDir: string | null): Promise<string> {
-  return backupDir ?? (await join(await dirname(dbPath), "backups"));
-}
-
-export async function backupBeforeOpen(dbPath: string, generations: number): Promise<void> {
+export async function backupBeforeOpen(
+  dbPath: string,
+  dir: string,
+  generations: number,
+): Promise<void> {
   try {
     if (!(await fsExists(dbPath))) return; // 初回起動(DB未作成)
-    const dir = await join(await dirname(dbPath), "backups");
     await fsMakeDir(dir);
 
     const base = `tasks_${timestamp(new Date())}.db`;
@@ -36,13 +36,7 @@ export async function backupBeforeOpen(dbPath: string, generations: number): Pro
 }
 
 // 設定画面からの手動バックアップ。VACUUM INTO で現在の DB を書き出す。
-export async function backupNow(
-  db: Database,
-  dbPath: string,
-  backupDir: string | null,
-  generations: number,
-): Promise<string> {
-  const dir = await resolveBackupDir(dbPath, backupDir);
+export async function backupNow(db: Database, dir: string, generations: number): Promise<string> {
   await fsMakeDir(dir);
   const target = await join(dir, `tasks_${timestamp(new Date())}.db`);
   // VACUUM INTO はパラメータバインドできないため文字列リテラルで渡す(' をエスケープ)
@@ -51,18 +45,23 @@ export async function backupNow(
   return target;
 }
 
-// 起動時バックアップの保存先(DBと同じフォルダの backups/)にあるバックアップ一覧。
-// 新しい順。DB open/マイグレーション失敗時の復元ダイアログ(§7 エラー方針)で使う。
-export async function listBackups(dbPath: string): Promise<string[]> {
-  const dir = await join(await dirname(dbPath), "backups");
+// 指定フォルダにあるバックアップ一覧(新しい順)。
+// DB open/マイグレーション失敗時の復元ダイアログ(§7 エラー方針)で使う。
+export async function listBackups(dir: string): Promise<string[]> {
   const names = await fsListDir(dir);
-  return names.filter((n) => BACKUP_FILE_RE.test(n)).sort().reverse();
+  return names
+    .filter((n) => BACKUP_FILE_RE.test(n))
+    .sort()
+    .reverse();
 }
 
 // 選んだバックアップで現在のDBファイルを置き換える(§5.1-5)。
 // 混入を防ぐため復元先の -wal/-shm を先に削除する。
-export async function restoreBackup(dbPath: string, backupName: string): Promise<void> {
-  const dir = await join(await dirname(dbPath), "backups");
+export async function restoreBackup(
+  dbPath: string,
+  dir: string,
+  backupName: string,
+): Promise<void> {
   await fsRemoveFile(dbPath + "-wal");
   await fsRemoveFile(dbPath + "-shm");
   await fsCopyFile(await join(dir, backupName), dbPath);

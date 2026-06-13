@@ -11,6 +11,7 @@ import { registerQuickAddHotkey, revealInExplorer, syncAutostart } from "../../l
 import { useSettingsStore } from "../../stores/settingsStore";
 import { useToastStore } from "../../stores/toastStore";
 import { STATUSES, STATUS_LABELS, type Status } from "../../types/models";
+import { TagManager } from "./TagManager";
 
 function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
@@ -205,6 +206,11 @@ export function SettingsView() {
               <option value="system">システム連動</option>
             </select>
           </Row>
+        </Section>
+
+        {/* タグ管理 */}
+        <Section title="タグ">
+          <TagManager />
         </Section>
 
         {/* 動作 */}

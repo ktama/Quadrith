@@ -6,7 +6,16 @@
 
 import { create } from "zustand";
 import { backupNow } from "../lib/backup";
-import { getDb, getDbPath, persistBackupGenerations, switchDbPath, type SwitchMode } from "../lib/db";
+import {
+  getBackupDir,
+  getDb,
+  getDbPath,
+  persistBackupDir,
+  persistBackupGenerations,
+  persistThemePref,
+  switchDbPath,
+  type SwitchMode,
+} from "../lib/db";
 import { applyTheme } from "../lib/theme";
 import { type Result } from "../lib/result";
 import * as settingsRepo from "../repositories/settingsRepo";
@@ -41,11 +50,13 @@ export const useSettingsStore = create<SettingsState>()((set, get) => ({
   update: async (key, value) => {
     const prev = get().settings;
     set({ settings: { ...prev, [key]: value } });
-    if (key === "theme") applyTheme(value as AppSettings["theme"]);
-    // 起動時バックアップが参照するため世代数はブートストラップ層にも反映する
-    if (key === "backupGenerations") {
-      await persistBackupGenerations(value as number);
+    // DB を開く前/開けない時にも必要な設定はブートストラップ層へミラーする
+    if (key === "theme") {
+      applyTheme(value as AppSettings["theme"]);
+      await persistThemePref(value as AppSettings["theme"]);
     }
+    if (key === "backupGenerations") await persistBackupGenerations(value as number);
+    if (key === "backupDir") await persistBackupDir(value as string | null);
     const res = await settingsRepo.saveSetting(key, value);
     if (!res.ok) {
       set({ settings: prev });
@@ -70,9 +81,9 @@ export const useSettingsStore = create<SettingsState>()((set, get) => ({
 
   runBackupNow: async () => {
     try {
-      const { settings, dbPath } = get();
+      const { settings } = get();
       const db = await getDb();
-      await backupNow(db, dbPath, settings.backupDir, settings.backupGenerations);
+      await backupNow(db, await getBackupDir(), settings.backupGenerations);
       useToastStore.getState().show("バックアップを作成しました");
     } catch (e) {
       console.error("manual backup failed:", e);

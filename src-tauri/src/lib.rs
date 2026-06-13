@@ -21,6 +21,12 @@ fn show_main_window(app: &AppHandle) {
     }
 }
 
+// 2つ目の起動が来たら新規ウィンドウを作らず既存のメインウィンドウを前面に出す。
+// 仕様書 §7.4「同時起動は非対応」: 同一DBへの2接続を防ぐ。
+fn focus_existing_instance(app: &AppHandle, _args: Vec<String>, _cwd: String) {
+    show_main_window(app);
+}
+
 fn setup_tray(app: &tauri::App) -> tauri::Result<()> {
     let show = MenuItem::with_id(app, "show", "開く", true, None::<&str>)?;
     let quit = MenuItem::with_id(app, "quit", "終了", true, None::<&str>)?;
@@ -53,6 +59,8 @@ fn setup_tray(app: &tauri::App) -> tauri::Result<()> {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        // single-instance は最初に登録する(公式ガイドの要件)
+        .plugin(tauri_plugin_single_instance::init(focus_existing_instance))
         .plugin(tauri_plugin_sql::Builder::default().build())
         .plugin(tauri_plugin_store::Builder::default().build())
         .plugin(tauri_plugin_fs::init())

@@ -27,6 +27,38 @@ export async function create(name: string, color: string): Promise<Result<Tag>> 
   }
 }
 
+export async function rename(id: string, name: string): Promise<Result<void>> {
+  try {
+    const db = await getDb();
+    await db.execute(`UPDATE tags SET name = ? WHERE id = ?`, [name, id]);
+    return ok(undefined);
+  } catch (e) {
+    return err("DB_WRITE", "タグ名の変更に失敗しました(名前の重複の可能性)", e);
+  }
+}
+
+export async function recolor(id: string, color: string): Promise<Result<void>> {
+  try {
+    const db = await getDb();
+    await db.execute(`UPDATE tags SET color = ? WHERE id = ?`, [color, id]);
+    return ok(undefined);
+  } catch (e) {
+    return err("DB_WRITE", "タグ色の変更に失敗しました", e);
+  }
+}
+
+// タグの削除。task_tags も明示的に消す(接続プールのため FK CASCADE に頼らない)。
+export async function remove(id: string): Promise<Result<void>> {
+  try {
+    const db = await getDb();
+    await db.execute(`DELETE FROM task_tags WHERE tag_id = ?`, [id]);
+    await db.execute(`DELETE FROM tags WHERE id = ?`, [id]);
+    return ok(undefined);
+  } catch (e) {
+    return err("DB_WRITE", "タグの削除に失敗しました", e);
+  }
+}
+
 export async function setTaskTags(taskId: string, tagIds: string[]): Promise<Result<void>> {
   try {
     const db = await getDb();

@@ -93,6 +93,20 @@ npm run tauri build  # 配布用ビルド
 これで仕様書・設計書の機能項目を **すべて実装完了**(フェーズ1〜3 + 設定機能 §7 +
 起動時の堅牢性 §7.4 + 仕上げ)。
 
+## 実装状況: 品質改善(レビュー指摘の反映)
+
+- [x] **メモのMarkdownリンクは外部ブラウザで開く** — WebView 遷移でアプリが消える不具合を修正([MemoField.tsx](src/components/panel/MemoField.tsx) `ExternalLink` → opener)
+- [x] **`updatedAt` を楽観更新と DB で一致** — ストアで生成した時刻を repo へ渡す
+- [x] **多重起動ガード** — `tauri-plugin-single-instance` で2つ目の起動は既存ウィンドウをフォーカス([lib.rs](src-tauri/src/lib.rs))
+- [x] **ウィンドウ復元位置のモニタ内クランプ** — 画面外復元を防止([windowClamp.ts](src/lib/windowClamp.ts))
+- [x] **バックアップ保存先の統一** — 起動時・手動・復元すべて設定の `backupDir` を尊重([db.ts](src/lib/db.ts) `getBackupDir`)
+- [x] **テーマの起動時チラつき(FOUC)解消** — settings.json にミラーし DB ロード前に適用
+- [x] **タグの管理** — 設定画面でリネーム・色変更・削除([TagManager.tsx](src/components/settings/TagManager.tsx))
+- [x] **放置リマインドの基準を `last_progress_at` に** — 状態変更のみ更新。ドラッグ/タグ編集ではリセットされない(マイグレーション v2)
+- [x] **クイック追加は本体へイベント委譲** — 別ウィンドウが2本目のDB接続を張らない
+- [x] **結合テストの追加** — マイグレーションSQL(better-sqlite3 でインメモリ検証)・DBパス切替の分岐・ウィンドウクランプ(計53テスト)
+- [x] **アイコンボタンに `aria-label`**
+
 ## 設計書からの意図的な差異
 
 - **マイグレーションは TS 側で実行**([src/lib/migrations.ts](src/lib/migrations.ts))。

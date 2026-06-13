@@ -21,6 +21,7 @@ export interface Task {
   reviewAt: string | null; // 'YYYY-MM-DD'
   createdAt: string; // ISO 8601 (UTC)
   updatedAt: string;
+  lastProgressAt: string; // 状態変更など「進捗」のあった日時。放置リマインドの基準
   completedAt: string | null;
   deletedAt: string | null;
   tagIds: string[];

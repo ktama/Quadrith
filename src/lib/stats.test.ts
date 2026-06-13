@@ -14,6 +14,7 @@ function done(importance: number, urgency: number, extra: Partial<Task> = {}): T
     reviewAt: null,
     createdAt: "2026-01-01T00:00:00.000Z",
     updatedAt: "2026-01-01T00:00:00.000Z",
+    lastProgressAt: "2026-01-01T00:00:00.000Z",
     completedAt: "2026-06-01T00:00:00.000Z",
     deletedAt: null,
     tagIds: [],

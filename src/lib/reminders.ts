@@ -46,9 +46,10 @@ export function computeReminders(
     }
 
     if (taskQuadrant(t) === "q2") {
-      const d = daysSince(t.updatedAt, nowMs);
+      // 配置やタグ編集ではなく「進捗」のあった日時を基準にする(放置の正確な検出)
+      const d = daysSince(t.lastProgressAt, nowMs);
       if (d >= staleDays) {
-        items.push({ kind: "stale", task: t, detail: `${d}日間更新なし(重要×非緊急)` });
+        items.push({ kind: "stale", task: t, detail: `${d}日間進捗なし(重要×非緊急)` });
       }
     }
   }
