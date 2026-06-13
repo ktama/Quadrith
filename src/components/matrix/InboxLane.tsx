@@ -17,12 +17,17 @@ function InboxCard({ task }: { task: Task }) {
   const { onPointerDown } = useDragCard(task.id);
   const selected = useUiStore((s) => s.selectedTaskId === task.id);
   const beingDragged = useUiStore((s) => s.dragging?.id === task.id);
+  const openContextMenu = useUiStore((s) => s.openContextMenu);
 
   return (
     <div
       className={`shrink-0 ${beingDragged ? "opacity-30" : ""}`}
       style={{ touchAction: "none" }}
       onPointerDown={onPointerDown}
+      onContextMenu={(e) => {
+        e.preventDefault();
+        openContextMenu(task.id, e.clientX, e.clientY);
+      }}
     >
       <TaskCardBody task={task} selected={selected} />
     </div>
@@ -69,17 +74,17 @@ export function InboxLane() {
   return (
     <div
       ref={laneRef}
-      className={`border-t border-slate-300 bg-slate-50 px-3 py-2 transition-colors ${
-        dragging ? "bg-blue-50 outline-2 outline-dashed -outline-offset-2 outline-blue-300" : ""
+      className={`border-t border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-3 py-2 transition-colors ${
+        dragging ? "bg-blue-50 dark:bg-blue-900/30 outline-2 outline-dashed -outline-offset-2 outline-blue-300" : ""
       }`}
     >
       <div className="flex items-center gap-3 mb-1.5">
-        <span className="text-xs font-bold text-slate-500">
+        <span className="text-xs font-bold text-slate-500 dark:text-slate-300">
           インボックス
           <span className="ml-1 font-normal">({inboxTasks.length})</span>
         </span>
         <input
-          className="flex-1 max-w-xs text-xs border border-slate-300 rounded px-2 py-1 bg-white focus:outline-blue-400"
+          className="flex-1 max-w-xs text-xs border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100 rounded px-2 py-1 bg-white focus:outline-blue-400"
           placeholder="タスクを追加してEnter"
           value={title}
           onChange={(e) => setTitle(e.target.value)}

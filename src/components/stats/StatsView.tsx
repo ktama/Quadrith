@@ -11,10 +11,10 @@ import { useTaskStore } from "../../stores/taskStore";
 import { useToastStore } from "../../stores/toastStore";
 
 const QUADRANT_TONE: Record<Quadrant, string> = {
-  q1: "bg-red-50 border-red-200",
-  q2: "bg-blue-50 border-blue-200",
-  q3: "bg-amber-50 border-amber-200",
-  q4: "bg-slate-50 border-slate-200",
+  q1: "bg-red-50 border-red-200 dark:bg-red-900/20 dark:border-red-900",
+  q2: "bg-blue-50 border-blue-200 dark:bg-blue-900/20 dark:border-blue-900",
+  q3: "bg-amber-50 border-amber-200 dark:bg-amber-900/20 dark:border-amber-900",
+  q4: "bg-slate-50 border-slate-200 dark:bg-slate-800 dark:border-slate-700",
 };
 const QUADRANT_BAR: Record<Quadrant, string> = {
   q1: "bg-red-400",
@@ -53,16 +53,18 @@ export function StatsView() {
   };
 
   return (
-    <div className="flex-1 min-h-0 overflow-y-auto bg-white p-6">
+    <div className="flex-1 min-h-0 overflow-y-auto bg-white dark:bg-slate-900 p-6">
       <div className="max-w-3xl mx-auto flex flex-col gap-6">
         <div className="flex items-center justify-between">
-          <h2 className="text-lg font-bold text-slate-700">完了タスクの象限分布</h2>
+          <h2 className="text-lg font-bold text-slate-700 dark:text-slate-100">
+            完了タスクの象限分布
+          </h2>
           <div className="flex gap-2">
             {(["json", "csv"] as const).map((fmt) => (
               <button
                 key={fmt}
                 disabled={exporting !== null}
-                className="text-xs px-3 py-1.5 rounded border border-slate-300 bg-white hover:bg-slate-50 text-slate-600 disabled:opacity-50"
+                className="text-xs px-3 py-1.5 rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 dark:text-slate-100 hover:bg-slate-50 dark:hover:bg-slate-600 text-slate-600 disabled:opacity-50"
                 onClick={() => void runExport(fmt)}
               >
                 {exporting === fmt ? "出力中..." : `${fmt.toUpperCase()} エクスポート`}
@@ -80,9 +82,11 @@ export function StatsView() {
         ) : (
           <>
             {/* ヘッドライン: 緊急対応に追われていないか */}
-            <div className="rounded-lg border border-slate-200 bg-slate-50 p-4 flex items-center gap-6">
+            <div className="rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 p-4 flex items-center gap-6">
               <div>
-                <div className="text-3xl font-bold text-slate-700">{stats.total}</div>
+                <div className="text-3xl font-bold text-slate-700 dark:text-slate-100">
+                  {stats.total}
+                </div>
                 <div className="text-xs text-slate-400">完了タスク総数</div>
               </div>
               <div className="flex-1">
@@ -90,7 +94,7 @@ export function StatsView() {
                   <span>緊急対応(今すぐやる / さばく・任せる)</span>
                   <span className="font-bold">{pct(stats.urgentRatio)}</span>
                 </div>
-                <div className="h-2 rounded-full bg-slate-200 overflow-hidden">
+                <div className="h-2 rounded-full bg-slate-200 dark:bg-slate-700 overflow-hidden">
                   <div
                     className="h-full bg-red-400"
                     style={{ width: pct(stats.urgentRatio) }}
@@ -111,12 +115,14 @@ export function StatsView() {
                 return (
                   <div key={q} className={`rounded-lg border p-4 ${QUADRANT_TONE[q]}`}>
                     <div className="flex items-baseline justify-between">
-                      <span className="text-sm font-semibold text-slate-600">
+                      <span className="text-sm font-semibold text-slate-600 dark:text-slate-200">
                         {QUADRANT_LABELS[q]}
                       </span>
-                      <span className="text-2xl font-bold text-slate-700">{cell.count}</span>
+                      <span className="text-2xl font-bold text-slate-700 dark:text-slate-100">
+                        {cell.count}
+                      </span>
                     </div>
-                    <div className="mt-2 h-1.5 rounded-full bg-white/70 overflow-hidden">
+                    <div className="mt-2 h-1.5 rounded-full bg-white/70 dark:bg-slate-900/50 overflow-hidden">
                       <div
                         className={`h-full ${QUADRANT_BAR[q]}`}
                         style={{ width: pct(cell.ratio) }}

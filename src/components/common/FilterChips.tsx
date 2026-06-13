@@ -17,7 +17,9 @@ export function FilterChips() {
           <button
             key={s}
             className={`text-xs px-2.5 py-1 rounded-full border transition-colors ${
-              active ? "text-white border-transparent" : "bg-white text-slate-400 border-slate-300"
+              active
+                ? "text-white border-transparent"
+                : "bg-white dark:bg-slate-700 text-slate-400 dark:text-slate-300 border-slate-300 dark:border-slate-600"
             }`}
             style={active ? { background: statusColors[s] } : {}}
             onClick={() => toggle(s)}

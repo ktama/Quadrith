@@ -3,11 +3,11 @@
 // パスを選ばせ、Rust の save_text_file コマンドで書き込む。
 // CSV は Excel が UTF-8 を正しく解釈できるよう BOM を付与する。
 
-import { invoke } from "@tauri-apps/api/core";
 import { save } from "@tauri-apps/plugin-dialog";
 import * as tagRepo from "../repositories/tagRepo";
 import * as taskRepo from "../repositories/taskRepo";
 import { buildCsv, buildJson } from "./export";
+import { saveTextFile } from "./fsops";
 import { todayLocal } from "./notifications";
 import { err, ok, type Result } from "./result";
 
@@ -29,7 +29,7 @@ export async function exportData(format: ExportFormat): Promise<Result<string | 
       filters: [{ name: format.toUpperCase(), extensions: [format] }],
     });
     if (!path) return ok(null);
-    await invoke("save_text_file", { path, contents: body });
+    await saveTextFile(path, body);
     return ok(path);
   } catch (e) {
     return err("FS", "エクスポートに失敗しました", e);

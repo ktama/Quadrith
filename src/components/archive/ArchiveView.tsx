@@ -32,9 +32,9 @@ function TaskRow({
   const cardTags = tags.filter((t) => task.tagIds.includes(t.id));
 
   return (
-    <div className="flex items-center gap-3 px-4 py-2.5 border-b border-slate-100 hover:bg-slate-50">
+    <div className="flex items-center gap-3 px-4 py-2.5 border-b border-slate-100 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800">
       <div className="flex-1 min-w-0">
-        <div className="text-sm text-slate-700 truncate">{task.title}</div>
+        <div className="text-sm text-slate-700 dark:text-slate-100 truncate">{task.title}</div>
         <div className="flex items-center gap-2 mt-0.5">
           <span className="text-[11px] text-slate-400">
             {dateLabel}: {fmt(date)}
@@ -90,8 +90,8 @@ export function ArchiveView() {
   );
 
   return (
-    <div className="flex-1 min-h-0 flex flex-col bg-white">
-      <div className="flex gap-1 px-4 pt-3 border-b border-slate-200">
+    <div className="flex-1 min-h-0 flex flex-col bg-white dark:bg-slate-900">
+      <div className="flex gap-1 px-4 pt-3 border-b border-slate-200 dark:border-slate-700">
         {(
           [
             ["done", `完了 (${archivedTasks.length})`],
@@ -102,8 +102,8 @@ export function ArchiveView() {
             key={key}
             className={`text-xs px-3 py-1.5 rounded-t-md border border-b-0 ${
               tab === key
-                ? "bg-white border-slate-300 font-bold text-slate-700 -mb-px"
-                : "bg-slate-100 border-slate-200 text-slate-400 hover:text-slate-600"
+                ? "bg-white dark:bg-slate-900 border-slate-300 dark:border-slate-700 font-bold text-slate-700 dark:text-slate-100 -mb-px"
+                : "bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
             }`}
             onClick={() => setTab(key)}
           >

@@ -33,8 +33,16 @@ export interface Tag {
 }
 
 // settings.json(ブートストラップ層、tauri-plugin-store)
+export interface WindowState {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
 export interface BootstrapSettings {
   dbPath: string;
+  window?: WindowState;
 }
 
 // DB内 settings テーブル(アプリ設定層)
@@ -42,9 +50,10 @@ export interface AppSettings {
   statusColors: Record<Status, string>;
   archiveAfterHours: number;
   theme: "light" | "dark" | "system";
-  quickAddHotkey: string; // 変更UIはフェーズ3以降(変更時は再起動が必要)
-  closeToTray: boolean;
-  notifyTime: string; // 'HH:mm' 期限通知の発火時刻
+  quickAddHotkey: string; // クイック追加のグローバルホットキー
+  autoStart: boolean; // Windows 起動時に常駐開始するか
+  closeToTray: boolean; // 閉じるボタンでトレイへ最小化するか
+  notifyTime: string; // 'HH:mm' 期限・再確認日通知の発火時刻
   backupGenerations: number;
   backupDir: string | null; // null = DBと同じフォルダの backups/
 }
@@ -60,6 +69,7 @@ export const DEFAULT_APP_SETTINGS: AppSettings = {
   archiveAfterHours: 24,
   theme: "light",
   quickAddHotkey: "Ctrl+Shift+Space",
+  autoStart: false,
   closeToTray: true,
   notifyTime: "09:00",
   backupGenerations: 3,

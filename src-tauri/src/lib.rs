@@ -4,6 +4,7 @@
 // マイグレーションは任意の DB パスに追従させるため TS 側で実行する
 // (src/lib/migrations.ts を参照。PRAGMA user_version で管理)。
 
+mod fsops;
 mod scheduler;
 
 use tauri::{
@@ -11,14 +12,6 @@ use tauri::{
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
     AppHandle, Manager,
 };
-
-// エクスポート用のファイル書込(設計書 §1: ファイル I/O は OS 連携として Rust 側で扱う)。
-// 保存先はダイアログでユーザーが選んだ任意パスのため、appdata に限定される
-// plugin-fs ではなく std::fs で書き込む。
-#[tauri::command]
-fn save_text_file(path: String, contents: String) -> Result<(), String> {
-    std::fs::write(&path, contents).map_err(|e| e.to_string())
-}
 
 fn show_main_window(app: &AppHandle) {
     if let Some(window) = app.get_webview_window("main") {
@@ -66,10 +59,20 @@ pub fn run() {
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
         .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_autostart::init(
+            tauri_plugin_autostart::MacosLauncher::LaunchAgent,
+            None,
+        ))
         .manage(scheduler::SchedulerState::default())
         .invoke_handler(tauri::generate_handler![
             scheduler::schedule_notifications,
-            save_text_file
+            fsops::save_text_file,
+            fsops::fs_exists,
+            fsops::fs_make_dir,
+            fsops::fs_copy_file,
+            fsops::fs_remove_file,
+            fsops::fs_list_dir
         ])
         .setup(|app| {
             setup_tray(app)?;

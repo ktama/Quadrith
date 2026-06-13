@@ -1,27 +1,36 @@
-// OS 連携の初期化(メインウィンドウ専用)
-// - グローバルホットキー → クイック追加ウィンドウの表示
+// OS 連携(メインウィンドウ専用)
+// - グローバルホットキー → クイック追加ウィンドウの表示(設定で変更可能・即時再登録)
 // - 閉じるボタン → トレイへ最小化(closeToTray 設定時)
+// - Windows 起動時の常駐(autostart)/ DBフォルダをエクスプローラで開く
 // いずれも失敗時は機能を無効化してアプリは継続する(設計書 §7)。
 
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { WebviewWindow } from "@tauri-apps/api/webviewWindow";
-import { isRegistered, register } from "@tauri-apps/plugin-global-shortcut";
+import { disable, enable, isEnabled } from "@tauri-apps/plugin-autostart";
+import { isRegistered, register, unregister } from "@tauri-apps/plugin-global-shortcut";
+import { revealItemInDir } from "@tauri-apps/plugin-opener";
+import { err, ok, type Result } from "./result";
 import { useSettingsStore } from "../stores/settingsStore";
 
-// React StrictMode の二重マウントで register/unregister が競合しないよう、
-// アプリ存続中は登録しっぱなしにする(ホットキー変更は再起動で反映)。
-let hotkeyInitialized = false;
+let currentHotkey: string | null = null;
 
-export async function registerQuickAddHotkey(hotkey: string): Promise<void> {
-  if (hotkeyInitialized) return;
-  hotkeyInitialized = true;
+// ホットキーの登録。設定変更時にも呼ばれ、旧キーを解除して新キーへ差し替える。
+// StrictMode の二重マウントや多重起動に備え、登録前に isRegistered で確認する。
+export async function registerQuickAddHotkey(hotkey: string): Promise<Result<void>> {
   try {
-    if (await isRegistered(hotkey)) return; // 多重起動・リロード時
-    await register(hotkey, (event) => {
-      if (event.state === "Pressed") void showQuickAddWindow();
-    });
+    if (currentHotkey && currentHotkey !== hotkey && (await isRegistered(currentHotkey))) {
+      await unregister(currentHotkey);
+    }
+    if (!(await isRegistered(hotkey))) {
+      await register(hotkey, (event) => {
+        if (event.state === "Pressed") void showQuickAddWindow();
+      });
+    }
+    currentHotkey = hotkey;
+    return ok(undefined);
   } catch (e) {
     console.error("global shortcut registration failed:", e);
+    return err("UNKNOWN", "ホットキーの登録に失敗しました(他アプリと競合の可能性)", e);
   }
 }
 
@@ -42,4 +51,24 @@ export async function initCloseToTray(): Promise<() => void> {
       await win.hide();
     }
   });
+}
+
+// Windows 起動時の常駐(仕様書 §7.2 動作)
+export async function syncAutostart(on: boolean): Promise<void> {
+  try {
+    const enabled = await isEnabled();
+    if (on && !enabled) await enable();
+    else if (!on && enabled) await disable();
+  } catch (e) {
+    console.error("autostart sync failed:", e);
+  }
+}
+
+// DBファイルの場所をエクスプローラで開く(仕様書 §7.2 データ)
+export async function revealInExplorer(path: string): Promise<void> {
+  try {
+    await revealItemInDir(path);
+  } catch (e) {
+    console.error("reveal in explorer failed:", e);
+  }
 }

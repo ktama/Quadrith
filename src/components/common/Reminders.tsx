@@ -43,7 +43,7 @@ export function Reminders() {
   return (
     <div ref={wrapRef} className="relative">
       <button
-        className="relative w-8 h-8 rounded-full hover:bg-slate-100 flex items-center justify-center text-slate-500"
+        className="relative w-8 h-8 rounded-full hover:bg-slate-100 dark:hover:bg-slate-700 flex items-center justify-center text-slate-500 dark:text-slate-300"
         title="リマインド"
         onClick={() => setOpen((o) => !o)}
       >
@@ -56,8 +56,8 @@ export function Reminders() {
       </button>
 
       {open && (
-        <div className="absolute right-0 top-9 z-40 w-80 bg-white border border-slate-200 rounded-lg shadow-xl">
-          <div className="px-3 py-2 border-b border-slate-100 text-xs font-bold text-slate-500">
+        <div className="absolute right-0 top-9 z-40 w-80 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-xl">
+          <div className="px-3 py-2 border-b border-slate-100 dark:border-slate-700 text-xs font-bold text-slate-500 dark:text-slate-300">
             リマインド({count})
           </div>
           <div className="max-h-80 overflow-y-auto">
@@ -71,7 +71,7 @@ export function Reminders() {
                 return (
                   <button
                     key={`${item.task.id}-${item.kind}-${i}`}
-                    className="w-full flex items-start gap-2 px-3 py-2 hover:bg-slate-50 text-left border-b border-slate-50 last:border-0"
+                    className="w-full flex items-start gap-2 px-3 py-2 hover:bg-slate-50 dark:hover:bg-slate-700 text-left border-b border-slate-50 dark:border-slate-700/50 last:border-0"
                     onClick={() => {
                       select(item.task.id);
                       setOpen(false);
@@ -83,7 +83,7 @@ export function Reminders() {
                       {badge.label}
                     </span>
                     <span className="min-w-0">
-                      <span className="block text-xs text-slate-700 truncate">
+                      <span className="block text-xs text-slate-700 dark:text-slate-100 truncate">
                         {item.task.title}
                       </span>
                       <span className="block text-[11px] text-slate-400">{item.detail}</span>

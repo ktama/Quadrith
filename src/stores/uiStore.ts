@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import { STATUSES, type Status } from "../types/models";
 
-export type View = "matrix" | "kanban" | "archive" | "stats";
+export type View = "matrix" | "kanban" | "archive" | "stats" | "settings";
 
 export interface DragState {
   id: string;
@@ -21,6 +21,7 @@ interface UiState {
   searchQuery: string;
   dragging: DragState | null;
   openClusterId: string | null; // 展開中の「+N」吹き出し
+  contextMenu: { taskId: string; x: number; y: number } | null; // カード右クリックメニュー
   now: number; // アーカイブ判定の再評価用(1分ごとに更新)
 
   setView: (view: View) => void;
@@ -29,6 +30,8 @@ interface UiState {
   toggleTagFilter: (tagId: string) => void;
   setSearchQuery: (q: string) => void;
   setOpenClusterId: (id: string | null) => void;
+  openContextMenu: (taskId: string, x: number, y: number) => void;
+  closeContextMenu: () => void;
   startDrag: (id: string, offsetX: number, offsetY: number, x: number, y: number) => void;
   updateDrag: (x: number, y: number) => void;
   endDrag: () => void;
@@ -43,9 +46,10 @@ export const useUiStore = create<UiState>()((set) => ({
   searchQuery: "",
   dragging: null,
   openClusterId: null,
+  contextMenu: null,
   now: Date.now(),
 
-  setView: (view) => set({ view, openClusterId: null }),
+  setView: (view) => set({ view, openClusterId: null, contextMenu: null }),
 
   select: (id) => set({ selectedTaskId: id }),
 
@@ -66,6 +70,10 @@ export const useUiStore = create<UiState>()((set) => ({
   setSearchQuery: (q) => set({ searchQuery: q }),
 
   setOpenClusterId: (id) => set({ openClusterId: id }),
+
+  openContextMenu: (taskId, x, y) => set({ contextMenu: { taskId, x, y } }),
+
+  closeContextMenu: () => set({ contextMenu: null }),
 
   startDrag: (id, offsetX, offsetY, x, y) => set({ dragging: { id, offsetX, offsetY, x, y } }),
 

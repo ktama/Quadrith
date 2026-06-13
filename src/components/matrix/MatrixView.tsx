@@ -27,12 +27,17 @@ function MatrixCard({ task, x, y }: { task: Task; x: number; y: number }) {
   const { onPointerDown } = useDragCard(task.id);
   const selected = useUiStore((s) => s.selectedTaskId === task.id);
   const beingDragged = useUiStore((s) => s.dragging?.id === task.id);
+  const openContextMenu = useUiStore((s) => s.openContextMenu);
 
   return (
     <div
       className={`absolute transition-opacity hover:z-30 ${beingDragged ? "opacity-30" : ""}`}
       style={{ left: x, top: y, zIndex: selected ? 20 : 10, touchAction: "none" }}
       onPointerDown={onPointerDown}
+      onContextMenu={(e) => {
+        e.preventDefault();
+        openContextMenu(task.id, e.clientX, e.clientY);
+      }}
     >
       <TaskCardBody task={task} selected={selected} />
     </div>
@@ -90,14 +95,17 @@ export function MatrixView() {
   const taskById = useMemo(() => new Map(visible.map((t) => [t.id, t])), [visible]);
 
   return (
-    <div ref={containerRef} className="relative flex-1 min-h-0 overflow-hidden bg-white">
+    <div
+      ref={containerRef}
+      className="relative flex-1 min-h-0 overflow-hidden bg-white dark:bg-slate-800"
+    >
       {/* 象限の背景(右上 = 重要かつ緊急 を薄く強調) */}
-      <div className="absolute right-0 top-0 w-1/2 h-1/2 bg-red-50/60 pointer-events-none" />
-      <div className="absolute left-0 top-0 w-1/2 h-1/2 bg-blue-50/40 pointer-events-none" />
+      <div className="absolute right-0 top-0 w-1/2 h-1/2 bg-red-50/60 dark:bg-red-500/10 pointer-events-none" />
+      <div className="absolute left-0 top-0 w-1/2 h-1/2 bg-blue-50/40 dark:bg-blue-500/10 pointer-events-none" />
 
       {/* 中央の十字境界線 */}
-      <div className="absolute left-1/2 top-0 bottom-0 w-px bg-slate-300 pointer-events-none" />
-      <div className="absolute top-1/2 left-0 right-0 h-px bg-slate-300 pointer-events-none" />
+      <div className="absolute left-1/2 top-0 bottom-0 w-px bg-slate-300 dark:bg-slate-600 pointer-events-none" />
+      <div className="absolute top-1/2 left-0 right-0 h-px bg-slate-300 dark:bg-slate-600 pointer-events-none" />
 
       {/* 象限ラベル */}
       {QUADRANT_LABELS.map((q) => (

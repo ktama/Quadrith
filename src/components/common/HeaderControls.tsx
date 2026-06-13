@@ -15,14 +15,14 @@ export function ViewTabs() {
   const setView = useUiStore((s) => s.setView);
 
   return (
-    <div className="flex rounded-md border border-slate-300 overflow-hidden">
+    <div className="flex rounded-md border border-slate-300 dark:border-slate-600 overflow-hidden">
       {VIEWS.map((v) => (
         <button
           key={v.key}
           className={`text-xs px-3 py-1.5 transition-colors ${
             view === v.key
               ? "bg-slate-700 text-white font-bold"
-              : "bg-white text-slate-500 hover:bg-slate-100"
+              : "bg-white dark:bg-slate-700 text-slate-500 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-600"
           }`}
           onClick={() => setView(v.key)}
         >
@@ -48,7 +48,9 @@ export function TagFilterChips() {
           <button
             key={t.id}
             className={`text-xs px-2 py-0.5 rounded-full border transition-colors ${
-              active ? "text-white border-transparent" : "bg-white text-slate-500 border-slate-300"
+              active
+                ? "text-white border-transparent"
+                : "bg-white dark:bg-slate-700 text-slate-500 dark:text-slate-300 border-slate-300 dark:border-slate-600"
             }`}
             style={active ? { background: t.color } : {}}
             onClick={() => toggle(t.id)}
@@ -68,7 +70,7 @@ export function SearchBox() {
   return (
     <div className="relative">
       <input
-        className="text-xs border border-slate-300 rounded-full pl-3 pr-7 py-1.5 w-48 bg-white focus:outline-blue-400"
+        className="text-xs border border-slate-300 dark:border-slate-600 rounded-full pl-3 pr-7 py-1.5 w-48 bg-white dark:bg-slate-700 dark:text-slate-100 focus:outline-blue-400"
         placeholder="タイトル・メモを検索"
         value={searchQuery}
         onChange={(e) => setSearchQuery(e.target.value)}

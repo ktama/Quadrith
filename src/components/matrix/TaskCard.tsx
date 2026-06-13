@@ -11,9 +11,14 @@ function dueBadge(dueDate: string): { label: string; className: string } {
   today.setHours(0, 0, 0, 0);
   const diffDays = Math.round((due.getTime() - today.getTime()) / 86_400_000);
   const label = `${due.getMonth() + 1}/${due.getDate()}`;
-  if (diffDays < 0) return { label: `${label} 期限切れ`, className: "bg-red-100 text-red-700" };
-  if (diffDays <= 2) return { label, className: "bg-amber-100 text-amber-700" };
-  return { label, className: "bg-slate-100 text-slate-500" };
+  if (diffDays < 0)
+    return {
+      label: `${label} 期限切れ`,
+      className: "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300",
+    };
+  if (diffDays <= 2)
+    return { label, className: "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300" };
+  return { label, className: "bg-slate-100 text-slate-500 dark:bg-slate-700 dark:text-slate-300" };
 }
 
 // カード本体(マトリクス・インボックス・カンバン・ドラッグオーバーレイで共用)
@@ -36,7 +41,7 @@ export function TaskCardBody({
 
   return (
     <div
-      className={`rounded-md bg-white shadow-sm border border-slate-200 px-2 py-1.5 select-none cursor-grab
+      className={`rounded-md bg-white dark:bg-slate-800 shadow-sm border border-slate-200 dark:border-slate-700 px-2 py-1.5 select-none cursor-grab
         ${translucent ? "opacity-70" : ""}
         ${task.status === "doing" ? "ring-2" : ""}
         ${selected ? "outline outline-2 outline-blue-500" : ""}`}
@@ -48,7 +53,7 @@ export function TaskCardBody({
     >
       <div
         className={`text-xs font-medium leading-tight line-clamp-2 ${
-          task.status === "done" ? "line-through text-slate-400" : "text-slate-800"
+          task.status === "done" ? "line-through text-slate-400" : "text-slate-800 dark:text-slate-100"
         }`}
       >
         {task.title}

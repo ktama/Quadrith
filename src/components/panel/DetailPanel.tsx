@@ -2,6 +2,7 @@
 // タイトル・メモ・期限日・タグ・状態の編集。保留/待ちでは再確認日の設定を促す。
 
 import { useState } from "react";
+import { MemoField } from "./MemoField";
 import { useTagStore } from "../../stores/tagStore";
 import { useTaskStore } from "../../stores/taskStore";
 import { useUiStore } from "../../stores/uiStore";
@@ -64,9 +65,9 @@ function PanelInner({ task }: { task: Task }) {
   const fmt = (iso: string) => new Date(iso).toLocaleString("ja-JP");
 
   return (
-    <aside className="w-80 shrink-0 border-l border-slate-300 bg-white flex flex-col overflow-y-auto">
-      <div className="flex items-center justify-between px-4 py-2 border-b border-slate-200">
-        <span className="text-xs font-bold text-slate-500">タスクの詳細</span>
+    <aside className="w-80 shrink-0 border-l border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 flex flex-col overflow-y-auto">
+      <div className="flex items-center justify-between px-4 py-2 border-b border-slate-200 dark:border-slate-700">
+        <span className="text-xs font-bold text-slate-500 dark:text-slate-300">タスクの詳細</span>
         <button
           className="text-slate-400 hover:text-slate-600 text-lg leading-none px-1"
           onClick={() => select(null)}
@@ -79,7 +80,7 @@ function PanelInner({ task }: { task: Task }) {
       <div className="p-4 flex flex-col gap-4 text-sm">
         {/* タイトル */}
         <input
-          className="w-full border border-slate-300 rounded px-2 py-1.5 font-medium focus:outline-blue-400"
+          className="w-full border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100 rounded px-2 py-1.5 font-medium focus:outline-blue-400"
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           onBlur={commitTitle}
@@ -90,7 +91,7 @@ function PanelInner({ task }: { task: Task }) {
 
         {/* 状態 */}
         <div>
-          <label className="block text-xs text-slate-500 mb-1">状態</label>
+          <label className="block text-xs text-slate-500 dark:text-slate-400 mb-1">状態</label>
           <div className="flex flex-wrap gap-1.5">
             {STATUSES.map((s: Status) => (
               <button
@@ -98,7 +99,7 @@ function PanelInner({ task }: { task: Task }) {
                 className={`text-xs px-2 py-1 rounded-full border transition-colors ${
                   task.status === s
                     ? "text-white border-transparent"
-                    : "bg-white text-slate-600 border-slate-300 hover:bg-slate-50"
+                    : "bg-white dark:bg-slate-700 text-slate-600 dark:text-slate-200 border-slate-300 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-600"
                 }`}
                 style={task.status === s ? { background: statusColors[s] } : {}}
                 onClick={() => void setStatus(task.id, s)}
@@ -111,10 +112,10 @@ function PanelInner({ task }: { task: Task }) {
 
         {/* 期限日 */}
         <div>
-          <label className="block text-xs text-slate-500 mb-1">期限日</label>
+          <label className="block text-xs text-slate-500 dark:text-slate-400 mb-1">期限日</label>
           <input
             type="date"
-            className="border border-slate-300 rounded px-2 py-1 focus:outline-blue-400"
+            className="border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100 rounded px-2 py-1 focus:outline-blue-400"
             value={task.dueDate ?? ""}
             onChange={(e) => void patch(task.id, { dueDate: e.target.value || null })}
           />
@@ -122,34 +123,25 @@ function PanelInner({ task }: { task: Task }) {
 
         {/* 再確認日(保留・待ちの死蔵防止) */}
         {needsReview && (
-          <div className="bg-amber-50 border border-amber-200 rounded p-2">
-            <label className="block text-xs text-amber-700 mb-1">
+          <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded p-2">
+            <label className="block text-xs text-amber-700 dark:text-amber-300 mb-1">
               再確認日(設定すると放置を防げます)
             </label>
             <input
               type="date"
-              className="border border-slate-300 rounded px-2 py-1 bg-white focus:outline-blue-400"
+              className="border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100 rounded px-2 py-1 bg-white focus:outline-blue-400"
               value={task.reviewAt ?? ""}
               onChange={(e) => void patch(task.id, { reviewAt: e.target.value || null })}
             />
           </div>
         )}
 
-        {/* メモ */}
-        <div>
-          <label className="block text-xs text-slate-500 mb-1">メモ</label>
-          <textarea
-            className="w-full h-28 border border-slate-300 rounded px-2 py-1.5 resize-y focus:outline-blue-400"
-            value={memo}
-            onChange={(e) => setMemo(e.target.value)}
-            onBlur={commitMemo}
-            placeholder="補足を入力..."
-          />
-        </div>
+        {/* メモ(Markdown 対応) */}
+        <MemoField value={memo} onChange={setMemo} onCommit={commitMemo} />
 
         {/* タグ */}
         <div>
-          <label className="block text-xs text-slate-500 mb-1">タグ</label>
+          <label className="block text-xs text-slate-500 dark:text-slate-400 mb-1">タグ</label>
           <div className="flex flex-wrap gap-1.5 mb-2">
             {tags.length === 0 && (
               <span className="text-xs text-slate-400">タグはまだありません</span>
@@ -160,7 +152,9 @@ function PanelInner({ task }: { task: Task }) {
                 <button
                   key={t.id}
                   className={`text-xs px-2 py-0.5 rounded-full border transition-colors ${
-                    active ? "text-white border-transparent" : "text-slate-600 border-slate-300"
+                    active
+                      ? "text-white border-transparent"
+                      : "text-slate-600 dark:text-slate-200 border-slate-300 dark:border-slate-600"
                   }`}
                   style={active ? { background: t.color } : {}}
                   onClick={() => toggleTag(t.id)}
@@ -172,7 +166,7 @@ function PanelInner({ task }: { task: Task }) {
           </div>
           <div className="flex gap-1.5 items-center">
             <input
-              className="flex-1 min-w-0 text-xs border border-slate-300 rounded px-2 py-1 focus:outline-blue-400"
+              className="flex-1 min-w-0 text-xs border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100 rounded px-2 py-1 focus:outline-blue-400"
               placeholder="新しいタグ"
               value={newTagName}
               onChange={(e) => setNewTagName(e.target.value)}
@@ -182,12 +176,12 @@ function PanelInner({ task }: { task: Task }) {
             />
             <input
               type="color"
-              className="w-7 h-7 p-0 border border-slate-300 rounded cursor-pointer"
+              className="w-7 h-7 p-0 border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100 rounded cursor-pointer"
               value={newTagColor}
               onChange={(e) => setNewTagColor(e.target.value)}
             />
             <button
-              className="text-xs px-2 py-1 rounded bg-slate-100 hover:bg-slate-200 text-slate-600"
+              className="text-xs px-2 py-1 rounded bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-600 dark:text-slate-200"
               onClick={() => void addTag()}
             >
               追加
@@ -203,7 +197,7 @@ function PanelInner({ task }: { task: Task }) {
         </div>
 
         {/* アクション */}
-        <div className="flex gap-2 pt-2 border-t border-slate-200">
+        <div className="flex gap-2 pt-2 border-t border-slate-200 dark:border-slate-700">
           {task.status !== "done" ? (
             <button
               className="flex-1 text-sm py-1.5 rounded bg-green-500 hover:bg-green-600 text-white"
@@ -213,14 +207,14 @@ function PanelInner({ task }: { task: Task }) {
             </button>
           ) : (
             <button
-              className="flex-1 text-sm py-1.5 rounded bg-slate-200 hover:bg-slate-300 text-slate-700"
+              className="flex-1 text-sm py-1.5 rounded bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-100"
               onClick={() => void setStatus(task.id, "doing")}
             >
               再開する
             </button>
           )}
           <button
-            className="text-sm px-3 py-1.5 rounded bg-red-50 hover:bg-red-100 text-red-600 border border-red-200"
+            className="text-sm px-3 py-1.5 rounded bg-red-50 dark:bg-red-900/30 hover:bg-red-100 dark:hover:bg-red-900/50 text-red-600 dark:text-red-300 border border-red-200 dark:border-red-800"
             onClick={() => void remove(task.id)}
           >
             削除

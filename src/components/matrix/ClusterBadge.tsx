@@ -43,11 +43,11 @@ export function ClusterBadge({
 
       {open && (
         <div
-          className="absolute z-40 bg-white border border-slate-300 rounded-lg shadow-xl p-2"
+          className="absolute z-40 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg shadow-xl p-2"
           style={{ left: popoverLeft, top: cluster.y + 16, width: POPOVER_W }}
         >
           <div className="flex items-center justify-between mb-1 px-1">
-            <span className="text-[11px] font-bold text-slate-500">
+            <span className="text-[11px] font-bold text-slate-500 dark:text-slate-300">
               {cluster.taskIds.length}件のタスク
             </span>
             <button
@@ -61,7 +61,7 @@ export function ClusterBadge({
             {members.map((t) => (
               <button
                 key={t.id}
-                className="flex items-center gap-2 px-1.5 py-1 rounded hover:bg-slate-100 text-left"
+                className="flex items-center gap-2 px-1.5 py-1 rounded hover:bg-slate-100 dark:hover:bg-slate-700 text-left"
                 onClick={() => {
                   select(t.id);
                   setOpenClusterId(null);
@@ -71,7 +71,7 @@ export function ClusterBadge({
                   className="w-2 h-2 rounded-full shrink-0"
                   style={{ background: statusColors[t.status] }}
                 />
-                <span className="text-xs text-slate-700 truncate">{t.title}</span>
+                <span className="text-xs text-slate-700 dark:text-slate-100 truncate">{t.title}</span>
               </button>
             ))}
           </div>
