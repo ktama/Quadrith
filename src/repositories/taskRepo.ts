@@ -85,6 +85,17 @@ export async function findAllAlive(): Promise<Result<Task[]>> {
   }
 }
 
+// 全タスク(論理削除分を含む)。エクスポート用。
+export async function findAll(): Promise<Result<Task[]>> {
+  try {
+    const db = await getDb();
+    const rows = await db.select<TaskRow[]>(`${SELECT_WITH_TAGS} ORDER BY t.created_at`);
+    return ok(rows.map(rowToTask));
+  } catch (e) {
+    return err("DB_READ", "エクスポート用データの読み込みに失敗しました", e);
+  }
+}
+
 export async function create(input: CreateTaskInput): Promise<Result<Task>> {
   try {
     const db = await getDb();

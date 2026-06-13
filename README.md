@@ -42,10 +42,18 @@ npm run tauri build  # 配布用ビルド
 - [x] タグでの絞り込み・タイトル/メモの検索(全ビュー共通)
 - [x] 密集時のクラスタ表示(同一箇所に4枚以上 →「+N」バッジ、クリックで吹き出し展開)
 
-フェーズ3(放置タスクリマインド・再確認日通知・統計・エクスポート)と
-設定画面(DBパス切替・色カスタマイズ・ホットキー変更 UI)は未実装。
-quickAddHotkey / notifyTime / closeToTray は DB の settings テーブルの値を
-使用するため、設定画面実装前でも DB を直接編集すれば変更できる(要再起動)。
+## 実装状況: フェーズ3(分析系)
+
+- [x] 第2領域(重要×非緊急)の放置タスクリマインド(既定14日更新なしで検出)
+- [x] 再確認日(review_at)による保留・待ちタスクの通知(期限通知と統合)
+- [x] リマインドのアプリ内表示(ヘッダーのベル、期限/再確認/放置を1リストに集約)
+- [x] 完了タスクの象限分布の統計(統計ビュー、緊急象限 Q1+Q3 の割合を可視化)
+- [x] JSON / CSV エクスポート(論理削除分も含む全タスク・タグ、保存ダイアログ)
+
+設定画面(DBパス切替・色カスタマイズ・ホットキー/通知時刻変更 UI)は未実装。
+quickAddHotkey / notifyTime / closeToTray / staleQ2 のしきい値は既定値または
+DB の settings テーブルの値を使用するため、設定画面実装前でも DB を直接編集すれば
+変更できる(要再起動)。
 
 ## 設計書からの意図的な差異
 
@@ -56,8 +64,12 @@ quickAddHotkey / notifyTime / closeToTray は DB の settings テーブルの値
 - **起動時バックアップは単純ファイルコピー**([src/lib/backup.ts](src/lib/backup.ts))。
   DB を開く前(WAL 非接続)に実行するため整合性が取れる(設計書 §5.1 手順4の補足どおり)。
   load 後の手動バックアップ(フェーズ2)では `VACUUM INTO` を使うこと。
-- 使用プラグインは sql / store / fs / global-shortcut / notification
-  (+ tauri 本体の tray-icon)。dialog / opener / autostart は設定画面と同時に追加する。
+- 使用プラグインは sql / store / fs / global-shortcut / notification / dialog
+  (+ tauri 本体の tray-icon)。opener / autostart は設定画面と同時に追加する。
+- **エクスポートのファイル書込は Rust 側コマンド**(`save_text_file`)。保存先は
+  ダイアログでユーザーが選ぶ任意パスで、appdata に限定される plugin-fs では
+  書けないため、ファイル I/O を OS 連携として Rust の `std::fs` で行う。
+  パス選択は tauri-plugin-dialog を使う。
 - クイック追加は専用の小ウィンドウ(label: `quickadd`)で実装。メインと同じ
   バンドルを共用し、[main.tsx](src/main.tsx) でウィンドウラベルにより振り分ける。
 

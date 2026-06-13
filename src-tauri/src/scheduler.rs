@@ -1,6 +1,6 @@
-// 通知スケジューラ(設計書 §4.6)
+// 通知スケジューラ(設計書 §4.6、フェーズ3で再確認日リマインドを統合)
 // Rust 側は DB を直接読まない。フロントが起動時・タスク変更時・日付変更時に
-// schedule_notifications コマンドで「今日が期限のタスク名」を登録し、
+// schedule_notifications コマンドで「今日リマインドすべきタスク名」を登録し、
 // 30秒間隔の tokio タスクが notifyTime 以降に一度だけトースト通知を発火する。
 // 発火後は "due-notified" イベントでフロントへ通知し、フロントが DB の
 // lastNotifiedDate を更新して同日二重通知(再起動時含む)を防ぐ。
@@ -12,7 +12,7 @@ use tauri_plugin_notification::NotificationExt;
 #[derive(Default)]
 pub struct Schedule {
     notify_time: String, // "HH:mm"
-    titles: Vec<String>, // 今日が期限の未完了タスク名
+    titles: Vec<String>, // 今日リマインドすべき未完了タスク名(期限 + 再確認日)
     fired_date: Option<String>, // 通知済みの日 "YYYY-MM-DD"
 }
 
@@ -72,7 +72,7 @@ fn check_and_fire(app: &AppHandle) {
     let result = app
         .notification()
         .builder()
-        .title(format!("今日が期限のタスクが{}件あります", schedule.titles.len()))
+        .title(format!("確認が必要なタスクが{}件あります", schedule.titles.len()))
         .body(&body)
         .show();
     if let Err(e) = result {

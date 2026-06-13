@@ -14,6 +14,7 @@
     "global-shortcut:allow-unregister",
     "global-shortcut:allow-is-registered",
     "notification:default",
+    "dialog:default",
     "sql:default",
     "sql:allow-load",
     "sql:allow-execute",

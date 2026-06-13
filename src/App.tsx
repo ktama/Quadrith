@@ -3,12 +3,14 @@ import { listen } from "@tauri-apps/api/event";
 import { ArchiveView } from "./components/archive/ArchiveView";
 import { FilterChips } from "./components/common/FilterChips";
 import { SearchBox, TagFilterChips, ViewTabs } from "./components/common/HeaderControls";
+import { Reminders } from "./components/common/Reminders";
 import { ToastContainer } from "./components/common/Toast";
 import { KanbanView } from "./components/kanban/KanbanView";
 import { InboxLane } from "./components/matrix/InboxLane";
 import { MatrixView } from "./components/matrix/MatrixView";
 import { TaskCardBody } from "./components/matrix/TaskCard";
 import { DetailPanel } from "./components/panel/DetailPanel";
+import { StatsView } from "./components/stats/StatsView";
 import { initCloseToTray, registerQuickAddHotkey } from "./lib/desktop";
 import {
   listenNotificationFired,
@@ -120,6 +122,7 @@ export default function App() {
           <div className="ml-auto flex items-center gap-3">
             {loading && <span className="text-xs text-slate-400">読み込み中...</span>}
             <SearchBox />
+            <Reminders />
           </div>
         </div>
         <div className="flex items-center gap-4 flex-wrap">
@@ -138,6 +141,7 @@ export default function App() {
           )}
           {view === "kanban" && <KanbanView />}
           {view === "archive" && <ArchiveView />}
+          {view === "stats" && <StatsView />}
         </main>
         <DetailPanel />
       </div>

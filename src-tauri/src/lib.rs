@@ -12,6 +12,14 @@ use tauri::{
     AppHandle, Manager,
 };
 
+// エクスポート用のファイル書込(設計書 §1: ファイル I/O は OS 連携として Rust 側で扱う)。
+// 保存先はダイアログでユーザーが選んだ任意パスのため、appdata に限定される
+// plugin-fs ではなく std::fs で書き込む。
+#[tauri::command]
+fn save_text_file(path: String, contents: String) -> Result<(), String> {
+    std::fs::write(&path, contents).map_err(|e| e.to_string())
+}
+
 fn show_main_window(app: &AppHandle) {
     if let Some(window) = app.get_webview_window("main") {
         let _ = window.show();
@@ -57,8 +65,12 @@ pub fn run() {
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
         .plugin(tauri_plugin_notification::init())
+        .plugin(tauri_plugin_dialog::init())
         .manage(scheduler::SchedulerState::default())
-        .invoke_handler(tauri::generate_handler![scheduler::schedule_notifications])
+        .invoke_handler(tauri::generate_handler![
+            scheduler::schedule_notifications,
+            save_text_file
+        ])
         .setup(|app| {
             setup_tray(app)?;
             scheduler::start(app.handle());

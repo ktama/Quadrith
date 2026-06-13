@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import { STATUSES, type Status } from "../types/models";
 
-export type View = "matrix" | "kanban" | "archive";
+export type View = "matrix" | "kanban" | "archive" | "stats";
 
 export interface DragState {
   id: string;

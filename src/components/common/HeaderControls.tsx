@@ -7,6 +7,7 @@ const VIEWS: { key: View; label: string }[] = [
   { key: "matrix", label: "マトリクス" },
   { key: "kanban", label: "カンバン" },
   { key: "archive", label: "アーカイブ" },
+  { key: "stats", label: "統計" },
 ];
 
 export function ViewTabs() {
