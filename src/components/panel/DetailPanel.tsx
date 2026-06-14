@@ -3,8 +3,15 @@
 
 import { useState } from "react";
 import { MemoField } from "./MemoField";
+import {
+  defaultRule,
+  describeRule,
+  RecurrenceForm,
+  type RecurrenceRule,
+} from "../recurring/RecurrenceForm";
 import { useTagStore } from "../../stores/tagStore";
 import { useTaskStore } from "../../stores/taskStore";
+import { useTemplateStore } from "../../stores/templateStore";
 import { useUiStore } from "../../stores/uiStore";
 import {
   STATUSES,
@@ -31,11 +38,32 @@ function PanelInner({ task }: { task: Task }) {
   const statusColors = useSettingsStore((s) => s.settings.statusColors);
   const tags = useTagStore((s) => s.tags);
   const createTag = useTagStore((s) => s.create);
+  const createTemplate = useTemplateStore((s) => s.create);
 
   const [title, setTitle] = useState(task.title);
   const [memo, setMemo] = useState(task.memo);
   const [newTagName, setNewTagName] = useState("");
   const [newTagColor, setNewTagColor] = useState("#3b82f6");
+  const [recurRule, setRecurRule] = useState<RecurrenceRule | null>(null);
+
+  const registerRecurrence = () => {
+    if (!recurRule) return;
+    void createTemplate({
+      title: task.title,
+      memo: task.memo,
+      importance: task.importance,
+      urgency: task.urgency,
+      freq: recurRule.freq,
+      interval: recurRule.interval,
+      byweekday: recurRule.byweekday,
+      bymonthday: recurRule.bymonthday,
+      anchorDate: recurRule.anchorDate,
+      tagIds: task.tagIds,
+      // この詳細パネルのタスク自身が anchor 当日ぶんを担うため、次回以降から生成する
+      skipAnchorOccurrence: true,
+    });
+    setRecurRule(null);
+  };
 
   const commitTitle = () => {
     const t = title.trim();
@@ -68,14 +96,24 @@ function PanelInner({ task }: { task: Task }) {
     <aside className="w-80 shrink-0 border-l border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 flex flex-col overflow-y-auto">
       <div className="flex items-center justify-between px-4 py-2 border-b border-slate-200 dark:border-slate-700">
         <span className="text-xs font-bold text-slate-500 dark:text-slate-300">タスクの詳細</span>
-        <button
-          className="text-slate-400 hover:text-slate-600 text-lg leading-none px-1"
-          onClick={() => select(null)}
-          title="閉じる"
-          aria-label="詳細パネルを閉じる"
-        >
-          ×
-        </button>
+        <div className="flex items-center gap-1">
+          <button
+            className="text-slate-400 hover:text-indigo-500 text-base leading-none px-1"
+            onClick={() => setRecurRule(defaultRule())}
+            title="繰り返しに登録"
+            aria-label="繰り返しに登録"
+          >
+            🔁
+          </button>
+          <button
+            className="text-slate-400 hover:text-slate-600 text-lg leading-none px-1"
+            onClick={() => select(null)}
+            title="閉じる"
+            aria-label="詳細パネルを閉じる"
+          >
+            ×
+          </button>
+        </div>
       </div>
 
       <div className="p-4 flex flex-col gap-4 text-sm">
@@ -224,6 +262,42 @@ function PanelInner({ task }: { task: Task }) {
           </button>
         </div>
       </div>
+
+      {/* 繰り返し設定モーダル(パネル内に展開せず中央オーバーレイで表示) */}
+      {recurRule && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm"
+          onClick={() => setRecurRule(null)}
+        >
+          <div
+            className="w-96 max-h-[80vh] overflow-y-auto bg-white dark:bg-slate-800 rounded-lg shadow-xl border border-slate-200 dark:border-slate-700 p-4 flex flex-col gap-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <span className="text-sm font-bold text-slate-700 dark:text-slate-100">
+              「{task.title}」を繰り返しに登録
+            </span>
+            <RecurrenceForm value={recurRule} onChange={setRecurRule} />
+            <p className="text-[11px] text-slate-400">
+              このタスクの内容・配置・タグを引き継いだ繰り返し({describeRule(recurRule)})を作成します。
+              この詳細のタスク自身が当日分を担うため、生成は次回以降から始まります。
+            </p>
+            <div className="flex gap-2">
+              <button
+                className="flex-1 text-sm py-1.5 rounded bg-indigo-500 hover:bg-indigo-600 text-white"
+                onClick={registerRecurrence}
+              >
+                登録
+              </button>
+              <button
+                className="text-sm px-3 py-1.5 rounded bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-600 dark:text-slate-200"
+                onClick={() => setRecurRule(null)}
+              >
+                キャンセル
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </aside>
   );
 }

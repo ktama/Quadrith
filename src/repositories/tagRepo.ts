@@ -47,11 +47,12 @@ export async function recolor(id: string, color: string): Promise<Result<void>> 
   }
 }
 
-// タグの削除。task_tags も明示的に消す(接続プールのため FK CASCADE に頼らない)。
+// タグの削除。task_tags / template_tags も明示的に消す(接続プールのため FK CASCADE に頼らない)。
 export async function remove(id: string): Promise<Result<void>> {
   try {
     const db = await getDb();
     await db.execute(`DELETE FROM task_tags WHERE tag_id = ?`, [id]);
+    await db.execute(`DELETE FROM template_tags WHERE tag_id = ?`, [id]);
     await db.execute(`DELETE FROM tags WHERE id = ?`, [id]);
     return ok(undefined);
   } catch (e) {

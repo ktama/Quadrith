@@ -21,6 +21,7 @@ function task(p: Partial<Task>): Task {
     lastProgressAt: new Date(NOW).toISOString(),
     completedAt: null,
     deletedAt: null,
+    templateId: null,
     tagIds: [],
     ...p,
   };

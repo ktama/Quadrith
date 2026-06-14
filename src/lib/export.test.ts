@@ -22,6 +22,7 @@ function task(p: Partial<Task>): Task {
     lastProgressAt: "2026-01-02T00:00:00.000Z",
     completedAt: null,
     deletedAt: null,
+    templateId: null,
     tagIds: ["tag-1", "tag-2"],
     ...p,
   };

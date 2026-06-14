@@ -14,6 +14,7 @@ import { InboxLane } from "./components/matrix/InboxLane";
 import { MatrixView } from "./components/matrix/MatrixView";
 import { TaskCardBody } from "./components/matrix/TaskCard";
 import { DetailPanel } from "./components/panel/DetailPanel";
+import { RecurringView } from "./components/recurring/RecurringView";
 import { SettingsView } from "./components/settings/SettingsView";
 import { StatsView } from "./components/stats/StatsView";
 import { listBackups, restoreBackup } from "./lib/backup";
@@ -32,6 +33,7 @@ import { restoreWindowState, watchWindowState } from "./lib/windowState";
 import { useSettingsStore } from "./stores/settingsStore";
 import { useTagStore } from "./stores/tagStore";
 import { useTaskStore } from "./stores/taskStore";
+import { useTemplateStore } from "./stores/templateStore";
 import { useUiStore } from "./stores/uiStore";
 
 // ドラッグ中のカードをポインタに追従させるオーバーレイ(DB書込なしの描画専用)
@@ -104,7 +106,11 @@ export default function App() {
         const today = todayLocal();
         if (today !== lastDate) {
           lastDate = today;
-          void syncDueNotifications();
+          // 日付が変わったら当日発生分を生成し、通知予定も更新する(設計書 §5.7)
+          void useTemplateStore
+            .getState()
+            .generateDue(today)
+            .finally(() => void syncDueNotifications());
         }
       }, 60_000);
       cleanups.push(() => clearInterval(timer));
@@ -116,7 +122,14 @@ export default function App() {
         // settingsStore.init() が最初に getDb() を呼び、
         // 起動時バックアップ → DB load → マイグレーションが走る(設計書 §5.1)
         await useSettingsStore.getState().init();
-        await Promise.all([useTaskStore.getState().load(), useTagStore.getState().load()]);
+        await Promise.all([
+          useTaskStore.getState().load(),
+          useTagStore.getState().load(),
+          useTemplateStore.getState().load(),
+        ]);
+        if (cancelled) return;
+        // 定期タスクの発生分を生成(設計書 §5.7)。タスク読込後に行う(重複防止のため)
+        await useTemplateStore.getState().generateDue(todayLocal());
         if (cancelled) return;
         await setupAfterReady();
         if (cancelled) return;
@@ -265,6 +278,7 @@ export default function App() {
             </>
           )}
           {view === "kanban" && <KanbanView />}
+          {view === "recurring" && <RecurringView />}
           {view === "archive" && <ArchiveView />}
           {view === "stats" && <StatsView />}
           {view === "settings" && <SettingsView />}

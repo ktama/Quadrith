@@ -36,6 +36,7 @@ const CSV_HEADERS = [
   "last_progress_at",
   "completed_at",
   "deleted_at",
+  "template_id",
   "tags",
 ];
 
@@ -62,6 +63,7 @@ export function buildCsv(bundle: ExportBundle): string {
       t.lastProgressAt,
       t.completedAt ?? "",
       t.deletedAt ?? "",
+      t.templateId ?? "",
       tags,
     ];
     lines.push(cells.map(csvEscape).join(","));
