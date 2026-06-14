@@ -17,6 +17,7 @@ function done(importance: number, urgency: number, extra: Partial<Task> = {}): T
     lastProgressAt: "2026-01-01T00:00:00.000Z",
     completedAt: "2026-06-01T00:00:00.000Z",
     deletedAt: null,
+    templateId: null,
     tagIds: [],
     ...extra,
   };

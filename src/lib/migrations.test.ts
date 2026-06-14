@@ -25,13 +25,45 @@ afterEach(() => {
 describe("migrations", () => {
   it("creates all tables and reaches the latest user_version", () => {
     applyAll(db);
-    expect(db.pragma("user_version", { simple: true })).toBe(2);
+    expect(db.pragma("user_version", { simple: true })).toBe(3);
     const tables = (
       db.prepare("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name").all() as {
         name: string;
       }[]
     ).map((r) => r.name);
-    expect(tables).toEqual(expect.arrayContaining(["tasks", "tags", "task_tags", "settings"]));
+    expect(tables).toEqual(
+      expect.arrayContaining([
+        "tasks",
+        "tags",
+        "task_tags",
+        "settings",
+        "recurring_templates",
+        "template_tags",
+      ]),
+    );
+  });
+
+  it("adds template_id and recurring tables via the v3 migration", () => {
+    applyAll(db);
+    const cols = (db.prepare("PRAGMA table_info(tasks)").all() as { name: string }[]).map(
+      (c) => c.name,
+    );
+    expect(cols).toContain("template_id");
+    // ひな型を1件入れ、freq の CHECK と FK 形が成立すること
+    db.prepare(
+      `INSERT INTO recurring_templates
+         (id,title,memo,importance,urgency,freq,interval,anchor_date,next_due,active,created_at,updated_at)
+       VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`,
+    ).run("tpl-1", "掃除", "", 0.7, 0.3, "weekly", 1, "2026-06-01", "2026-06-15", 1, "n", "n");
+    expect(() =>
+      db
+        .prepare(
+          `INSERT INTO recurring_templates
+             (id,title,memo,importance,urgency,freq,interval,anchor_date,next_due,active,created_at,updated_at)
+           VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`,
+        )
+        .run("tpl-bad", "x", "", null, null, "hourly", 1, "n", "n", 1, "n", "n"),
+    ).toThrow();
   });
 
   it("adds last_progress_at via the v2 migration", () => {
@@ -50,7 +82,7 @@ describe("migrations", () => {
       if (m.version <= current) continue;
       for (const sql of m.statements) db.exec(sql);
     }
-    expect(db.pragma("user_version", { simple: true })).toBe(2);
+    expect(db.pragma("user_version", { simple: true })).toBe(3);
   });
 
   it("enforces the importance/urgency null-together CHECK", () => {

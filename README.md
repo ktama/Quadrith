@@ -45,9 +45,15 @@ Tauri 2.x / React 18 + TypeScript / Zustand / Tailwind CSS v4 / SQLite (tauri-pl
 - 期限日・タグ・メモ(Markdown 対応)・再確認日、カード右クリックメニュー
 
 **ビュー**
-- マトリクス / カンバン(列間ドラッグで状態変更) / アーカイブ・ごみ箱 / 統計
+- マトリクス / カンバン(列間ドラッグで状態変更) / 繰り返し / アーカイブ・ごみ箱 / 統計
 - タグ絞り込み・タイトル/メモ検索(一覧系ビュー共通)
 - 完了 → 既定24時間後にマトリクスから自動退避(アーカイブ判定は表示時計算)
+
+**定期タスク(繰り返し)**
+- ひな型(毎日 / 毎週・曜日指定 / 毎月・日付指定 / 毎年、N間隔)を登録 → 発生日に通常タスクを自動生成
+- 固定スケジュール型。未起動で複数回該当しても「まとめて1件」に集約、未完了の実体があれば重複生成しない
+- 生成タスクはひな型の象限・タグを継承し、通知・統計・アーカイブにそのまま乗る(🔁 アイコン表示)
+- 詳細パネルの🔁ボタン(モーダル)でタスクをひな型化 / 専用ビューで一覧・停止/再開・編集・削除
 
 **リマインド & 通知**
 - 期限 / 再確認日 / 第2領域(重要×非緊急)の放置 を1リストに集約(ヘッダーのベル)
@@ -56,7 +62,7 @@ Tauri 2.x / React 18 + TypeScript / Zustand / Tailwind CSS v4 / SQLite (tauri-pl
 **データ**
 - SQLite。DBは任意のパス(Dropbox 等)に変更可能 → 簡易バックアップ・複数台持ち回り
 - 起動時の自動バックアップ(3世代)+ 設定画面からの手動バックアップ(`VACUUM INTO`)
-- JSON / CSV エクスポート、スキーママイグレーション基盤(`PRAGMA user_version`、現行 v2)
+- JSON / CSV エクスポート、スキーママイグレーション基盤(`PRAGMA user_version`、現行 v3)
 
 **運用 / 堅牢性**
 - システムトレイ常駐、グローバルホットキーでのクイック追加、Windows 起動時の常駐(autostart)
@@ -89,13 +95,13 @@ Tauri 2.x / React 18 + TypeScript / Zustand / Tailwind CSS v4 / SQLite (tauri-pl
 ```sh
 npm install          # 依存関係のインストール
 npm run tauri dev    # 開発実行(初回は Rust のビルドに数分)
-npm test             # 単体・結合テスト(vitest, 53件)
+npm test             # 単体・結合テスト(vitest, 65件)
 npm run build        # フロントエンドの型チェック + ビルド
 npm run tauri build  # 配布用ビルド
 ```
 
 - テストは純粋関数(coords / layout / quadrant / reminders / stats / export / switchPlan /
-  windowClamp)に加え、マイグレーション SQL を **better-sqlite3** のインメモリDBで検証。
+  windowClamp / recurrence)に加え、マイグレーション SQL を **better-sqlite3** のインメモリDBで検証。
 - ディレクトリ構成は [design.md §2](doc/design.md) を参照。
 - アイコン変更時は差分ビルドだと再埋め込みされないことがある。`cargo clean -p quadrith
   --manifest-path src-tauri/Cargo.toml` 後に再ビルドする。

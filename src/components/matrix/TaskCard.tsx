@@ -61,6 +61,11 @@ export function TaskCardBody({
         {task.title}
       </div>
       <div className="mt-1 flex items-center gap-1 min-h-[14px]">
+        {task.templateId && (
+          <span title="繰り返しから生成" className="text-[10px] leading-none shrink-0 text-slate-400">
+            🔁
+          </span>
+        )}
         {cardTags.slice(0, 4).map((t) => (
           <span
             key={t.id}

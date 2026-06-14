@@ -24,6 +24,35 @@ export interface Task {
   lastProgressAt: string; // 状態変更など「進捗」のあった日時。放置リマインドの基準
   completedAt: string | null;
   deletedAt: string | null;
+  templateId: string | null; // 生成元の繰り返しひな型。null = 通常タスク
+  tagIds: string[];
+}
+
+// 定期タスクのひな型(仕様 §4.7)。発生日に Task を1件生成する。
+export type RecurFreq = "daily" | "weekly" | "monthly" | "yearly";
+
+export const RECUR_FREQ_LABELS: Record<RecurFreq, string> = {
+  daily: "毎日",
+  weekly: "毎週",
+  monthly: "毎月",
+  yearly: "毎年",
+};
+
+export interface RecurringTemplate {
+  id: string;
+  title: string;
+  memo: string;
+  importance: number | null; // 実体へ継承(urgency と常に同時に null)
+  urgency: number | null;
+  freq: RecurFreq;
+  interval: number; // N日/N週/Nヶ月/N年ごと(>=1)
+  byweekday: number[]; // weekly用: ISO 1=月〜7=日(複数可)
+  bymonthday: number | null; // monthly用: 1〜31(該当日なき月は末日丸め)
+  anchorDate: string; // 'YYYY-MM-DD' 起点日
+  nextDue: string; // 'YYYY-MM-DD' 次に生成すべき発生日
+  active: boolean; // false = 停止
+  createdAt: string;
+  updatedAt: string;
   tagIds: string[];
 }
 

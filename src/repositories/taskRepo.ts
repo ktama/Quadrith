@@ -19,6 +19,7 @@ interface TaskRow {
   last_progress_at: string | null;
   completed_at: string | null;
   deleted_at: string | null;
+  template_id: string | null;
   tag_ids: string | null;
 }
 
@@ -42,6 +43,7 @@ function rowToTask(r: TaskRow): Task {
     lastProgressAt: r.last_progress_at ?? r.updated_at,
     completedAt: r.completed_at,
     deletedAt: r.deleted_at,
+    templateId: r.template_id,
     tagIds: r.tag_ids ? r.tag_ids.split(",") : [],
   };
 }
@@ -53,6 +55,7 @@ export interface CreateTaskInput {
   urgency?: number | null;
   status?: Status;
   dueDate?: string | null;
+  templateId?: string | null; // 繰り返しひな型からの生成時に設定
 }
 
 export type TaskPatch = Partial<
@@ -125,13 +128,14 @@ export async function create(input: CreateTaskInput): Promise<Result<Task>> {
       lastProgressAt: now,
       completedAt: null,
       deletedAt: null,
+      templateId: input.templateId ?? null,
       tagIds: [],
     };
     await db.execute(
       `INSERT INTO tasks
          (id, title, memo, importance, urgency, status,
-          due_date, review_at, created_at, updated_at, last_progress_at, completed_at, deleted_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, NULL)`,
+          due_date, review_at, created_at, updated_at, last_progress_at, completed_at, deleted_at, template_id)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, NULL, ?)`,
       [
         task.id,
         task.title,
@@ -144,6 +148,7 @@ export async function create(input: CreateTaskInput): Promise<Result<Task>> {
         task.createdAt,
         task.updatedAt,
         task.lastProgressAt,
+        task.templateId,
       ],
     );
     return ok(task);

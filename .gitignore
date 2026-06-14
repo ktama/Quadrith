@@ -5,6 +5,9 @@ src-tauri/gen/schemas/
 app-icon.png
 *.local
 
+# Claude Code(端末ローカルの個人設定。共有する settings.json は追跡する)
+.claude/settings.local.json
+
 # logs / env
 *.log
 .env

@@ -6,6 +6,7 @@ import { useUiStore, type View } from "../../stores/uiStore";
 const VIEWS: { key: View; label: string }[] = [
   { key: "matrix", label: "マトリクス" },
   { key: "kanban", label: "カンバン" },
+  { key: "recurring", label: "繰り返し" },
   { key: "archive", label: "アーカイブ" },
   { key: "stats", label: "統計" },
 ];

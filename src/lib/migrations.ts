@@ -65,6 +65,40 @@ const MIGRATIONS: Migration[] = [
       `UPDATE tasks SET last_progress_at = updated_at WHERE last_progress_at IS NULL`,
     ],
   },
+  {
+    version: 3,
+    description: "add recurring task templates",
+    statements: [
+      // 生成元のひな型(NULL = 通常タスク)。🔁表示・シリーズ追跡用
+      `ALTER TABLE tasks ADD COLUMN template_id TEXT`,
+      // 定期タスクのひな型。発生日に通常 tasks を1件生成する(仕様 §4.7)
+      `CREATE TABLE IF NOT EXISTS recurring_templates (
+        id           TEXT PRIMARY KEY,
+        title        TEXT NOT NULL,
+        memo         TEXT NOT NULL DEFAULT '',
+        importance   REAL,
+        urgency      REAL,
+        freq         TEXT NOT NULL
+                     CHECK (freq IN ('daily','weekly','monthly','yearly')),
+        interval     INTEGER NOT NULL DEFAULT 1,
+        byweekday    TEXT,
+        bymonthday   INTEGER,
+        anchor_date  TEXT NOT NULL,
+        next_due     TEXT NOT NULL,
+        active       INTEGER NOT NULL DEFAULT 1,
+        created_at   TEXT NOT NULL,
+        updated_at   TEXT NOT NULL,
+        CHECK ((importance IS NULL) = (urgency IS NULL))
+      )`,
+      `CREATE INDEX IF NOT EXISTS idx_templates_active
+         ON recurring_templates(active, next_due)`,
+      `CREATE TABLE IF NOT EXISTS template_tags (
+        template_id TEXT NOT NULL REFERENCES recurring_templates(id) ON DELETE CASCADE,
+        tag_id      TEXT NOT NULL REFERENCES tags(id) ON DELETE CASCADE,
+        PRIMARY KEY (template_id, tag_id)
+      )`,
+    ],
+  },
 ];
 
 export const MIGRATIONS_FOR_TEST = MIGRATIONS;

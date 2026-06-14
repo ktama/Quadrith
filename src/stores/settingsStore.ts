@@ -22,7 +22,9 @@ import * as settingsRepo from "../repositories/settingsRepo";
 import { DEFAULT_APP_SETTINGS, type AppSettings } from "../types/models";
 import { useTagStore } from "./tagStore";
 import { useTaskStore } from "./taskStore";
+import { useTemplateStore } from "./templateStore";
 import { useToastStore } from "./toastStore";
+import { todayLocal } from "../lib/notifications";
 
 interface SettingsState {
   settings: AppSettings;
@@ -74,7 +76,13 @@ export const useSettingsStore = create<SettingsState>()((set, get) => ({
     }
     // 新 DB の内容で再読込(AppSettings → テーマも反映される)
     await get().init();
-    await Promise.all([useTaskStore.getState().load(), useTagStore.getState().load()]);
+    await Promise.all([
+      useTaskStore.getState().load(),
+      useTagStore.getState().load(),
+      useTemplateStore.getState().load(),
+    ]);
+    // 切替先 DB の定期タスクの発生分を生成(設計書 §5.7)
+    await useTemplateStore.getState().generateDue(todayLocal());
     useToastStore.getState().show("DBの保存先を変更しました");
     return res;
   },

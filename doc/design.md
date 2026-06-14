@@ -80,6 +80,7 @@ src/                              # フロントエンド
 │   ├── taskFilters.ts            # 状態/タグ/検索の共通フィルタ
 │   ├── reminders.ts              # 期限/再確認日/放置(Q2)リマインドの統合
 │   ├── stats.ts                  # 完了タスクの象限分布統計
+│   ├── recurrence.ts             # 定期タスク: 次回発生日の計算・生成判定(純粋関数)
 │   ├── export.ts                 # JSON/CSV 整形(純粋関数)
 │   ├── exportFile.ts             # 保存ダイアログ + 書込
 │   ├── notifications.ts          # 通知予定を Rust スケジューラへ登録
@@ -92,10 +93,12 @@ src/                              # フロントエンド
 │   └── dragTargets.ts            # ドロップ先(マトリクス/インボックス)のDOM登録
 ├── repositories/
 │   ├── taskRepo.ts               # tasks テーブルのCRUD
+│   ├── templateRepo.ts           # recurring_templates / template_tags のCRUD
 │   ├── tagRepo.ts                # tags / task_tags(作成/改名/色/削除/付替)
 │   └── settingsRepo.ts           # DB内 settings テーブル
 ├── stores/
 │   ├── taskStore.ts              # タスク一覧 + 操作(undo, stripTag 含む)
+│   ├── templateStore.ts          # 繰り返しひな型一覧 + 操作 + 発生分の生成
 │   ├── tagStore.ts               # タグ一覧 + 操作
 │   ├── settingsStore.ts          # 2層設定の統合窓口 + DBパス切替 + 手動バックアップ
 │   ├── uiStore.ts                # ビュー/選択/フィルタ/検索/ドラッグ/コンテキストメニュー
@@ -104,6 +107,7 @@ src/                              # フロントエンド
 │   ├── matrix/{MatrixView, TaskCard, ClusterBadge, InboxLane}.tsx
 │   ├── panel/{DetailPanel, MemoField}.tsx     # MemoField は Markdown 編集/プレビュー
 │   ├── kanban/KanbanView.tsx
+│   ├── recurring/{RecurringView, RecurrenceForm}.tsx  # ひな型一覧・新規/編集モーダル・頻度フォーム
 │   ├── archive/ArchiveView.tsx
 │   ├── stats/StatsView.tsx
 │   ├── settings/{SettingsView, TagManager}.tsx
@@ -144,10 +148,31 @@ export interface Task {
   lastProgressAt: string;      // 状態変更など「進捗」の日時(放置リマインド基準, migration v2)
   completedAt: string | null;
   deletedAt: string | null;
+  templateId: string | null;   // 生成元の繰り返しひな型(null=通常タスク, migration v3)
   tagIds: string[];            // JOIN結果を集約して保持
 }
 
 export interface Tag { id: string; name: string; color: string; }
+
+// 定期タスクのひな型(migration v3)。発生日に Task を生成する。仕様 §4.7
+export type RecurFreq = 'daily' | 'weekly' | 'monthly' | 'yearly';
+export interface RecurringTemplate {
+  id: string;
+  title: string;
+  memo: string;
+  importance: number | null;   // 実体へ継承(importance と urgency は常に同時に null)
+  urgency: number | null;
+  freq: RecurFreq;
+  interval: number;            // N日/N週/Nヶ月/N年ごと(>=1)
+  byweekday: number[];         // weekly用: ISO 1=月〜7=日(複数可)
+  bymonthday: number | null;   // monthly用: 1〜31(該当日なき月は末日丸め)
+  anchorDate: string;          // 'YYYY-MM-DD' 起点日
+  nextDue: string;             // 'YYYY-MM-DD' 次に生成すべき発生日
+  active: boolean;             // false=停止
+  createdAt: string;
+  updatedAt: string;
+  tagIds: string[];
+}
 
 // settings.json(ブートストラップ層)。DB を開く前/開けない時にも必要な値を持つ。
 export interface WindowState { x: number; y: number; width: number; height: number; }
@@ -320,6 +345,36 @@ pointerup
 `stale`(第2領域=重要×非緊急を `last_progress_at` 基準で14日以上放置)。
 ヘッダーのベル([Reminders.tsx](../src/components/common/Reminders.tsx))で一覧表示、通知は due+review のみ。
 
+### 5.7 定期タスクの生成([recurrence.ts](../src/lib/recurrence.ts) / templateStore)
+
+仕様 §4.7。**Rust は不使用**(ロジックは TS に寄せる方針)。アーカイブ判定(§5.4)と同じく
+起動時と日付変更(`uiStore.now`)を契機に評価する。
+
+```
+契機: 起動シーケンス(§5.1 の load 後)/ 日付変更監視
+templateStore.generateDue(today):
+  for t of 全 active テンプレート:
+    if t.nextDue > today: continue                 // まだ発生していない
+    if 当該テンプレ由来の未完了タスクが存在: 生成せず nextDue だけ前進  // 溜め込み防止
+    else:
+      occ = occurrencesUpTo(t, today)              // recurrence.ts(純粋関数)
+      taskStore で 1 件生成(dueDate = occ の直近, 座標/タグ/メモ/title を継承,
+                            status='todo', templateId=t.id)   // まとめて1件
+    t.nextDue = nextOccurrenceAfter(t, today)       // recurrence.ts(純粋関数)
+    templateRepo.update(t)
+```
+
+純粋関数(vitest 対象):
+- `nextOccurrenceAfter(template, date)`: freq/interval/byweekday/bymonthday と anchorDate から
+  `date` より後の最初の発生日を返す。monthly は該当日なき月を末日に丸める。
+- `occurrencesUpTo(template, today)`: `nextDue`〜`today` の発生回数(>=1 の判定と直近日に使用)。
+
+生成された実体は通常タスクなので、通知・統計・アーカイブ・カンバンは既存のまま機能する。
+完了しても即時に次回を作らず、次の `nextDue` 到来時に上記フローで生成する。
+ひな型作成直後にも `generateDue` を1回呼び、発生日を過ぎているものは即座に実体化する。
+詳細パネルヘッダーの🔁ボタン(モーダル)から既存タスクをひな型化する場合は `skipAnchorOccurrence`
+で初期 `nextDue` を anchor の翌日以降に置き、当日タスクとの二重生成を避ける。
+
 ## 6. マイグレーション設計([migrations.ts](../src/lib/migrations.ts))
 
 ```typescript
@@ -329,6 +384,8 @@ const MIGRATIONS = [
       `ALTER TABLE tasks ADD COLUMN last_progress_at TEXT`,
       `UPDATE tasks SET last_progress_at = updated_at WHERE last_progress_at IS NULL`,
   ]},
+  // v3: 定期タスク。recurring_templates / template_tags / tasks.template_id を追加
+  { version: 3, description: 'add recurring task templates', statements: [/* 仕様 §3 v3 参照 */] },
 ];
 // applyMigrations: PRAGMA user_version を読み、未適用分のみ順次 execute → user_version 更新
 ```
@@ -387,3 +444,5 @@ const MIGRATIONS = [
   多重起動防止 / 任意パス対応のファイルI/O。
 - 仕上げ: メモ Markdown / タグ管理 / 放置リマインドの `last_progress_at` 基準化 / デザイン刷新
   (トークン・フォント・カスタムタイトルバー・グラス)。
+- フェーズ4(定期タスク): 繰り返しひな型(固定スケジュール型・毎日/週/月/年)/ 発生日の自動生成
+  (まとめて1件・未完了時は重複生成しない)/ 専用ビュー・詳細パネルの🔁モーダル・カードの🔁(§4.7 / §5.7)。

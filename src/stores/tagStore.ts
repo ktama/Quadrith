@@ -2,6 +2,7 @@ import { create } from "zustand";
 import * as tagRepo from "../repositories/tagRepo";
 import type { Tag } from "../types/models";
 import { useTaskStore } from "./taskStore";
+import { useTemplateStore } from "./templateStore";
 import { useToastStore } from "./toastStore";
 import { useUiStore } from "./uiStore";
 
@@ -70,8 +71,9 @@ export const useTagStore = create<TagState>()((set, get) => ({
     set({ tags: prev.filter((t) => t.id !== id) });
     const res = await tagRepo.remove(id);
     if (res.ok) {
-      // メモリ上の全タスクからも取り除き、タグ絞り込みからも外す
+      // メモリ上の全タスク・ひな型からも取り除き、タグ絞り込みからも外す
       useTaskStore.getState().stripTag(id);
+      useTemplateStore.getState().stripTag(id);
       const ui = useUiStore.getState();
       if (ui.tagFilter.includes(id)) ui.toggleTagFilter(id);
     } else {
