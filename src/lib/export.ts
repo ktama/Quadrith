@@ -1,21 +1,23 @@
 // エクスポートの整形(仕様書 フェーズ3、JSON/CSV)
 // ここは純粋関数のみ。ファイル保存(ダイアログ + 書込)は exportFile.ts が担う。
 
-import type { Tag, Task } from "../types/models";
+import type { RecurringTemplate, Tag, Task } from "../types/models";
 
 export interface ExportBundle {
   tasks: Task[]; // 論理削除分も含む全タスク
   tags: Tag[];
+  templates: RecurringTemplate[]; // 定期タスクのひな型
 }
 
 export function buildJson(bundle: ExportBundle): string {
   return JSON.stringify(
     {
       app: "Quadrith",
-      schemaVersion: 1,
+      schemaVersion: 2, // v2: templates(定期タスクのひな型)を追加
       exportedAt: new Date().toISOString(),
       tasks: bundle.tasks,
       tags: bundle.tags,
+      templates: bundle.templates,
     },
     null,
     2,

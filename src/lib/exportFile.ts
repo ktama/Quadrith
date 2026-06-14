@@ -6,6 +6,7 @@
 import { save } from "@tauri-apps/plugin-dialog";
 import * as tagRepo from "../repositories/tagRepo";
 import * as taskRepo from "../repositories/taskRepo";
+import * as templateRepo from "../repositories/templateRepo";
 import { buildCsv, buildJson } from "./export";
 import { saveTextFile } from "./fsops";
 import { todayLocal } from "./notifications";
@@ -19,8 +20,14 @@ export async function exportData(format: ExportFormat): Promise<Result<string | 
   if (!tasksRes.ok) return tasksRes;
   const tagsRes = await tagRepo.findAll();
   if (!tagsRes.ok) return tagsRes;
+  const templatesRes = await templateRepo.findAll();
+  if (!templatesRes.ok) return templatesRes;
 
-  const bundle = { tasks: tasksRes.value, tags: tagsRes.value };
+  const bundle = {
+    tasks: tasksRes.value,
+    tags: tagsRes.value,
+    templates: templatesRes.value,
+  };
   const body = format === "json" ? buildJson(bundle) : `﻿${buildCsv(bundle)}`;
 
   try {

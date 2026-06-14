@@ -200,7 +200,8 @@ CREATE TABLE template_tags (
 - 実体単体の編集・削除・完了は既存の通常タスクと同じ。
 
 **既存機能との整合**: 通知(due/review)・統計・アーカイブ・カンバンは改修不要。
-エクスポート([export.ts](../src/lib/export.ts))の CSV に `template_id` 列を追加する。
+エクスポート([export.ts](../src/lib/export.ts))は CSV に `template_id` 列を追加し、
+JSON にはひな型一覧 `templates` を追加(`schemaVersion` 2)。
 
 ## 5. 機能要件(実装状況)
 
