@@ -35,6 +35,11 @@ jobs:
         with:
           tagName: ${{ github.ref_name }}
           releaseName: "Quadrith ${{ github.ref_name }}"
-          releaseBody: "See the assets below to download and install."
+          releaseBody: |
+            下記の `*-setup.exe` をダウンロードしてインストールしてください（管理者権限は不要です）。
+
+            > 初回起動時に Windows SmartScreen の「認識されないアプリ」警告が出ることがあります
+            > （アプリが未署名のため。ウイルスではありません）。
+            > その場合は「詳細情報」→「実行」で起動できます。
           releaseDraft: true
           prerelease: false

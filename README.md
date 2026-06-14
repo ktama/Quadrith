@@ -18,6 +18,15 @@
 📖 **使い方**: [doc/manual.md](doc/manual.md)（ユーザーマニュアル）
 🛠 **開発者向け**: 仕様 [doc/requirements.md](doc/requirements.md) / 設計 [doc/design.md](doc/design.md)
 
+## インストール
+
+[Releases](../../releases) から最新の `Quadrith_x.y.z_x64-setup.exe` をダウンロードして実行してください。
+**管理者権限は不要**です（ユーザー単位インストール: `%LOCALAPPDATA%\Quadrith`）。
+
+> ⚠️ 初回起動時に Windows SmartScreen の **「Windows によって PC が保護されました / 認識されないアプリ」**
+> という警告が出ることがあります。これはアプリにコード署名をしていないためで、ウイルスではありません。
+> その場合は **「詳細情報」→「実行」** をクリックすると起動できます。
+
 ## 技術スタック
 
 Tauri 2.x / React 18 + TypeScript / Zustand / Tailwind CSS v4 / SQLite (tauri-plugin-sql)
