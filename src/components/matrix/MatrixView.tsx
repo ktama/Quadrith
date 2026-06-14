@@ -99,19 +99,28 @@ export function MatrixView() {
       ref={containerRef}
       className="relative flex-1 min-h-0 overflow-hidden bg-white dark:bg-slate-800"
     >
+      {/* ドットグリッド(奥行きの演出) */}
+      <div
+        className="absolute inset-0 pointer-events-none"
+        style={{
+          backgroundImage: "radial-gradient(var(--dot) 1px, transparent 1px)",
+          backgroundSize: "22px 22px",
+        }}
+      />
+
       {/* 象限の背景(右上 = 重要かつ緊急 を薄く強調) */}
-      <div className="absolute right-0 top-0 w-1/2 h-1/2 bg-red-50/60 dark:bg-red-500/10 pointer-events-none" />
-      <div className="absolute left-0 top-0 w-1/2 h-1/2 bg-blue-50/40 dark:bg-blue-500/10 pointer-events-none" />
+      <div className="absolute right-0 top-0 w-1/2 h-1/2 bg-red-50/50 dark:bg-red-500/[0.07] pointer-events-none" />
+      <div className="absolute left-0 top-0 w-1/2 h-1/2 bg-blue-50/40 dark:bg-blue-500/[0.07] pointer-events-none" />
 
       {/* 中央の十字境界線 */}
-      <div className="absolute left-1/2 top-0 bottom-0 w-px bg-slate-300 dark:bg-slate-600 pointer-events-none" />
-      <div className="absolute top-1/2 left-0 right-0 h-px bg-slate-300 dark:bg-slate-600 pointer-events-none" />
+      <div className="absolute left-1/2 top-0 bottom-0 w-px bg-slate-200 dark:bg-slate-700 pointer-events-none" />
+      <div className="absolute top-1/2 left-0 right-0 h-px bg-slate-200 dark:bg-slate-700 pointer-events-none" />
 
       {/* 象限ラベル */}
       {QUADRANT_LABELS.map((q) => (
         <span
           key={q.label}
-          className={`absolute ${q.className} text-sm font-semibold text-slate-300 pointer-events-none select-none`}
+          className={`absolute ${q.className} text-[11px] font-semibold uppercase tracking-wider text-slate-400/70 dark:text-slate-500 pointer-events-none select-none`}
         >
           {q.label}
         </span>

@@ -15,8 +15,8 @@ import { TagManager } from "./TagManager";
 
 function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
-    <section className="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800">
-      <h3 className="px-4 py-2 border-b border-slate-100 dark:border-slate-700 text-xs font-bold text-slate-500 dark:text-slate-300">
+    <section className="rounded-xl border border-slate-200 dark:border-slate-700/70 bg-white dark:bg-slate-800 shadow-sm">
+      <h3 className="px-4 py-2.5 border-b border-slate-100 dark:border-slate-700/70 text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">
         {title}
       </h3>
       <div className="p-4 flex flex-col gap-4">{children}</div>
@@ -263,8 +263,8 @@ export function SettingsView() {
 
       {/* DBパス切替の確認モーダル(§7.3) */}
       {pending && (
-        <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-slate-800 rounded-lg shadow-xl max-w-md w-full p-5">
+        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white/90 dark:bg-slate-800/90 backdrop-blur-xl border border-slate-200 dark:border-slate-700 rounded-xl shadow-xl max-w-md w-full p-5">
             <h3 className="text-sm font-bold text-slate-700 dark:text-slate-100 mb-1">
               DBの保存先を変更
             </h3>

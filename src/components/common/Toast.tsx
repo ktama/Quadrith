@@ -9,8 +9,10 @@ export function ToastContainer() {
       {toasts.map((t) => (
         <div
           key={t.id}
-          className={`pointer-events-auto flex items-center gap-3 px-4 py-2 rounded-lg shadow-lg text-sm text-white ${
-            t.kind === "error" ? "bg-red-600" : "bg-slate-800"
+          className={`pointer-events-auto flex items-center gap-3 px-4 py-2 rounded-xl shadow-lg text-sm text-white border backdrop-blur-md ${
+            t.kind === "error"
+              ? "bg-red-600/90 border-red-500/50"
+              : "bg-slate-800/90 dark:bg-slate-700/90 border-white/10"
           }`}
         >
           <span>{t.message}</span>

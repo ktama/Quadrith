@@ -41,10 +41,12 @@ export function TaskCardBody({
 
   return (
     <div
-      className={`rounded-md bg-white dark:bg-slate-800 shadow-sm border border-slate-200 dark:border-slate-700 px-2 py-1.5 select-none cursor-grab
+      className={`rounded-md bg-white dark:bg-slate-800 shadow-sm border border-slate-200 dark:border-slate-700
+        px-2 py-1.5 select-none cursor-grab transition-all duration-150
+        hover:shadow-md hover:border-slate-300 dark:hover:border-slate-600 hover:-translate-y-px
         ${translucent ? "opacity-70" : ""}
         ${task.status === "doing" ? "ring-2" : ""}
-        ${selected ? "outline outline-2 outline-blue-500" : ""}`}
+        ${selected ? "outline outline-2 outline-blue-500 shadow-md" : ""}`}
       style={{
         width: fluid ? "100%" : CARD_W,
         borderLeft: `4px solid ${color}`,

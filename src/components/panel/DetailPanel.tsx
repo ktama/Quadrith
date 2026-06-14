@@ -81,7 +81,9 @@ function PanelInner({ task }: { task: Task }) {
       <div className="p-4 flex flex-col gap-4 text-sm">
         {/* タイトル */}
         <input
-          className="w-full border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100 rounded px-2 py-1.5 font-medium focus:outline-blue-400"
+          className="w-full bg-transparent border border-transparent rounded-md px-2 py-1.5 text-base font-semibold text-slate-800 dark:text-slate-100
+            hover:bg-slate-50 dark:hover:bg-slate-700/50
+            focus:bg-white dark:focus:bg-slate-700 focus:border-slate-300 dark:focus:border-slate-600 focus:outline-none transition-colors"
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           onBlur={commitTitle}

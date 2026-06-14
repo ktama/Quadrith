@@ -54,7 +54,7 @@ export function CardContextMenu() {
   return (
     <div
       ref={ref}
-      className="fixed z-50 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-xl py-1"
+      className="fixed z-50 bg-white/85 dark:bg-slate-800/85 backdrop-blur-xl border border-slate-200 dark:border-slate-700 rounded-xl shadow-xl py-1"
       style={{ left: pos.x, top: pos.y, width: MENU_W }}
       onContextMenu={(e) => e.preventDefault()}
     >

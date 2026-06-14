@@ -15,14 +15,14 @@ export function ViewTabs() {
   const setView = useUiStore((s) => s.setView);
 
   return (
-    <div className="flex rounded-md border border-slate-300 dark:border-slate-600 overflow-hidden">
+    <div className="flex items-center gap-0.5 p-0.5 rounded-lg bg-slate-100 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700">
       {VIEWS.map((v) => (
         <button
           key={v.key}
-          className={`text-xs px-3 py-1.5 transition-colors ${
+          className={`text-xs font-medium px-2.5 py-1 rounded-md transition-all ${
             view === v.key
-              ? "bg-slate-700 text-white font-bold"
-              : "bg-white dark:bg-slate-700 text-slate-500 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-600"
+              ? "bg-white dark:bg-slate-700 text-slate-800 dark:text-white shadow-sm"
+              : "text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white"
           }`}
           onClick={() => setView(v.key)}
         >

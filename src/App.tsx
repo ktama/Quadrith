@@ -6,7 +6,9 @@ import { FilterChips } from "./components/common/FilterChips";
 import { SearchBox, TagFilterChips, ViewTabs } from "./components/common/HeaderControls";
 import { Reminders } from "./components/common/Reminders";
 import { DbErrorScreen, DbMissingDialog } from "./components/common/StartupDialogs";
+import { ResizeHandles } from "./components/common/ResizeHandles";
 import { ToastContainer } from "./components/common/Toast";
+import { WindowControls } from "./components/common/WindowControls";
 import { KanbanView } from "./components/kanban/KanbanView";
 import { InboxLane } from "./components/matrix/InboxLane";
 import { MatrixView } from "./components/matrix/MatrixView";
@@ -198,11 +200,36 @@ export default function App() {
 
   return (
     <div className="h-full flex flex-col bg-slate-50 dark:bg-slate-900">
-      <header className="flex flex-col gap-2 px-4 py-2 bg-white dark:bg-slate-800 border-b border-slate-300 dark:border-slate-700 shrink-0">
-        <div className="flex items-center gap-4">
-          <h1 className="text-base font-bold text-slate-700 dark:text-slate-100">Quadrith</h1>
-          <ViewTabs />
-          <div className="ml-auto flex items-center gap-3">
+      <header className="flex flex-col bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-800 shrink-0">
+        {/* タイトルバー行(枠なしウィンドウ: ドラッグ移動 + ウィンドウ操作) */}
+        <div className="flex items-stretch h-9">
+          <div
+            data-tauri-drag-region
+            className="flex items-center gap-2 pl-3 pr-2 cursor-default"
+          >
+            <svg width="18" height="18" viewBox="0 0 20 20" className="shrink-0 pointer-events-none" aria-hidden="true">
+              <defs>
+                <linearGradient id="logoG" x1="0" y1="0" x2="20" y2="20">
+                  <stop stopColor="#6366f1" />
+                  <stop offset="1" stopColor="#4338ca" />
+                </linearGradient>
+              </defs>
+              <rect width="20" height="20" rx="5" fill="url(#logoG)" />
+              <rect x="4" y="4" width="5" height="5" rx="1.2" fill="#fff" opacity="0.95" />
+              <rect x="11" y="4" width="5" height="5" rx="1.2" fill="#fff" opacity="0.5" />
+              <rect x="4" y="11" width="5" height="5" rx="1.2" fill="#fff" opacity="0.5" />
+              <rect x="11" y="11" width="5" height="5" rx="1.2" fill="#fff" opacity="0.78" />
+            </svg>
+            <h1 className="text-sm font-bold tracking-tight text-slate-800 dark:text-slate-100 pointer-events-none">
+              Quadrith
+            </h1>
+          </div>
+          <div className="flex items-center">
+            <ViewTabs />
+          </div>
+          {/* ドラッグ用の余白 */}
+          <div data-tauri-drag-region className="flex-1 self-stretch" />
+          <div className="flex items-center gap-2 pr-1">
             {loading && <span className="text-xs text-slate-400">読み込み中...</span>}
             <SearchBox />
             <Reminders />
@@ -219,9 +246,10 @@ export default function App() {
               </span>
             </button>
           </div>
+          <WindowControls />
         </div>
         {showFilters && (
-          <div className="flex items-center gap-4 flex-wrap">
+          <div className="flex items-center gap-4 flex-wrap px-3 pb-1.5">
             <FilterChips />
             <TagFilterChips />
           </div>
@@ -247,6 +275,7 @@ export default function App() {
       <DragOverlay />
       <CardContextMenu />
       <ToastContainer />
+      <ResizeHandles />
     </div>
   );
 }

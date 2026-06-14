@@ -44,7 +44,7 @@ export function ClusterBadge({
 
       {open && (
         <div
-          className="absolute z-40 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg shadow-xl p-2"
+          className="absolute z-40 bg-white/85 dark:bg-slate-800/85 backdrop-blur-xl border border-slate-200 dark:border-slate-600 rounded-xl shadow-xl p-2"
           style={{ left: popoverLeft, top: cluster.y + 16, width: POPOVER_W }}
         >
           <div className="flex items-center justify-between mb-1 px-1">

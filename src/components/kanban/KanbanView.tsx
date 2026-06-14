@@ -27,10 +27,10 @@ function KanbanColumn({
 
   return (
     <div
-      className={`flex-1 min-w-44 flex flex-col rounded-lg border bg-slate-50 dark:bg-slate-800 transition-colors ${
+      className={`flex-1 min-w-44 flex flex-col rounded-xl border bg-slate-100/60 dark:bg-slate-800/60 transition-colors ${
         dragOver
           ? "border-blue-400 bg-blue-50 dark:bg-blue-900/30"
-          : "border-slate-200 dark:border-slate-700"
+          : "border-slate-200 dark:border-slate-700/70"
       }`}
       onDragOver={(e) => {
         e.preventDefault();
@@ -49,7 +49,9 @@ function KanbanColumn({
         <span className="text-xs font-bold text-slate-600 dark:text-slate-200">
           {STATUS_LABELS[status]}
         </span>
-        <span className="text-xs text-slate-400 ml-auto">{tasks.length}</span>
+        <span className="text-[11px] text-slate-500 dark:text-slate-400 ml-auto px-1.5 py-0.5 rounded-full bg-slate-200/70 dark:bg-slate-700/70 min-w-5 text-center">
+          {tasks.length}
+        </span>
       </div>
       <div className="flex-1 overflow-y-auto p-2 flex flex-col gap-2">
         {tasks.map((t) => (

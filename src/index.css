@@ -3,6 +3,59 @@
 /* テーマはクラス方式(html.dark)で切り替える(lib/theme.ts) */
 @custom-variant dark (&:where(.dark, .dark *));
 
+/* デザイントークンの一括再定義(高密度プロツール / インディゴアクセント)。
+   既存コンポーネントの slate/blue ユーティリティをそのまま洗練した配色へ写像する。
+   - slate ramp: わずかに寒色・低彩度。暗部は Linear 風のニアブラック。
+   - blue ramp:  インディゴへ置換(アクセント)。ステータス5色は別管理なので不変。 */
+@theme {
+  --font-sans: "Inter Variable", "Noto Sans JP", "Segoe UI", "Yu Gothic UI", "Meiryo",
+    system-ui, sans-serif;
+
+  --color-slate-50: #f6f7f9;
+  --color-slate-100: #eceef2;
+  --color-slate-200: #e2e5ea;
+  --color-slate-300: #cdd1d9;
+  --color-slate-400: #9ba1ac;
+  --color-slate-500: #6f7682;
+  --color-slate-600: #4c525d;
+  --color-slate-700: #2b2f37;
+  --color-slate-800: #15171c;
+  --color-slate-900: #0d0e12;
+  --color-slate-950: #08090a;
+
+  --color-blue-50: #eef2ff;
+  --color-blue-100: #e0e7ff;
+  --color-blue-200: #c7d2fe;
+  --color-blue-300: #a5b4fc;
+  --color-blue-400: #818cf8;
+  --color-blue-500: #6366f1;
+  --color-blue-600: #4f46e5;
+  --color-blue-700: #4338ca;
+  --color-blue-800: #3730a3;
+  --color-blue-900: #312e81;
+
+  /* 影は控えめに(Linear 風。暗部は境界線で階層を出す) */
+  --shadow-2xs: 0 1px 1px rgba(13, 14, 18, 0.04);
+  --shadow-xs: 0 1px 2px rgba(13, 14, 18, 0.05);
+  --shadow-sm: 0 1px 2px rgba(13, 14, 18, 0.06), 0 1px 1px rgba(13, 14, 18, 0.04);
+  --shadow-md: 0 4px 12px -2px rgba(13, 14, 18, 0.1);
+  --shadow-lg: 0 10px 24px -6px rgba(13, 14, 18, 0.14);
+  --shadow-xl: 0 18px 44px -10px rgba(13, 14, 18, 0.2);
+}
+
+:root {
+  --accent: #6366f1;
+  --sb-thumb: #cdd1d9;
+  --sb-thumb-hover: #b3b9c4;
+  --dot: #e4e7ec;
+}
+html.dark {
+  --accent: #818cf8;
+  --sb-thumb: #2f333c;
+  --sb-thumb-hover: #3c414c;
+  --dot: #1c1f26;
+}
+
 html,
 body,
 #root {
@@ -11,15 +64,44 @@ body,
 
 body {
   margin: 0;
-  font-family: "Segoe UI", "Yu Gothic UI", "Meiryo", sans-serif;
-  background: #f1f5f9;
-  color: #1e293b;
+  font-family: var(--font-sans);
+  font-feature-settings: "cv05", "ss01";
+  background: #f6f7f9;
+  color: #1c2024;
   overscroll-behavior: none;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
 }
 
 html.dark body {
-  background: #0f172a;
-  color: #e2e8f0;
+  background: #0d0e12;
+  color: #e6e8ec;
+}
+
+::selection {
+  background: color-mix(in srgb, var(--accent) 32%, transparent);
+}
+
+/* 細身でテーマに馴染むスクロールバー */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--sb-thumb) transparent;
+}
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--sb-thumb);
+  border-radius: 8px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--sb-thumb-hover);
+}
+::-webkit-scrollbar-corner {
+  background: transparent;
 }
 
 /* Markdown プレビュー(詳細パネルのメモ)。typography プラグインを使わず最小限に整える */

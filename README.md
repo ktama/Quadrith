@@ -9,6 +9,21 @@
 
 Tauri 2.x / React 18 + TypeScript / Zustand / Tailwind CSS v4 / SQLite (tauri-plugin-sql)
 
+## デザイン
+
+高密度プロツール志向(Linear 風)。インディゴのアクセント、Inter + Noto Sans JP(オフライン
+同梱、仕様§6 準拠)。配色は [src/index.css](src/index.css) の `@theme` で Tailwind の
+slate/blue ランプ・影・フォントを一括再定義しており、各コンポーネントの既存ユーティリティ
+クラスのまま全体の見た目を切り替えている(ライト/ダーク両対応、ダーク基調が映える)。
+ステータス5色はユーザー設定値なのでこのトークンとは独立。
+
+**カスタムタイトルバー**: メインウィンドウは `decorations: false`(枠なし)。ヘッダー自体が
+タイトルバーを兼ね、ロゴ・ビュータブ・検索・ウィンドウ操作(最小化/最大化/閉じる)を1本に
+統合([WindowControls.tsx](src/components/common/WindowControls.tsx))。`data-tauri-drag-region`
+でドラッグ移動、[ResizeHandles.tsx](src/components/common/ResizeHandles.tsx) で縁リサイズを保証
+(Windows の枠なし対策)。閉じるは OS と同じ経路(`closeToTray` 判定)を通る。
+**グラス効果**: ポップオーバー・コンテキストメニュー・モーダル・トーストに `backdrop-blur`。
+
 ## 開発
 
 ```sh
