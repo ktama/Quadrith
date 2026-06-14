@@ -11,8 +11,8 @@ use tauri_plugin_notification::NotificationExt;
 
 #[derive(Default)]
 pub struct Schedule {
-    notify_time: String, // "HH:mm"
-    titles: Vec<String>, // 今日リマインドすべき未完了タスク名(期限 + 再確認日)
+    notify_time: String,        // "HH:mm"
+    titles: Vec<String>,        // 今日リマインドすべき未完了タスク名(期限 + 再確認日)
     fired_date: Option<String>, // 通知済みの日 "YYYY-MM-DD"
 }
 
@@ -72,7 +72,10 @@ fn check_and_fire(app: &AppHandle) {
     let result = app
         .notification()
         .builder()
-        .title(format!("確認が必要なタスクが{}件あります", schedule.titles.len()))
+        .title(format!(
+            "確認が必要なタスクが{}件あります",
+            schedule.titles.len()
+        ))
         .body(&body)
         .show();
     if let Err(e) = result {

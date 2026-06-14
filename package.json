@@ -3,11 +3,24 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
+  "description": "重要度・緊急度・状態の3軸でタスクを管理する Windows 向けデスクトップアプリ",
+  "license": "MIT",
+  "author": "ktama",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ktama/Quadrith.git"
+  },
+  "bugs": {
+    "url": "https://github.com/ktama/Quadrith/issues"
+  },
+  "homepage": "https://github.com/ktama/Quadrith#readme",
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
     "preview": "vite preview",
     "test": "vitest run",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
     "tauri": "tauri"
   },
   "dependencies": {
@@ -35,6 +48,7 @@
     "@types/react-dom": "^18.3.1",
     "@vitejs/plugin-react": "^4.3.4",
     "better-sqlite3": "^12.10.0",
+    "prettier": "^3.4.2",
     "tailwindcss": "^4.1.4",
     "typescript": "~5.7.2",
     "vite": "^6.2.0",

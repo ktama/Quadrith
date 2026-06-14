@@ -3,148 +3,114 @@
 重要度・緊急度・状態の3軸でタスクを管理する Windows 向けデスクトップアプリ。
 アイゼンハワーマトリクスの「どれからやるか」と、カンバンの「どこまで進んだか」を1画面で扱う。
 
-仕様: [doc/requrements.md](doc/requrements.md) / 設計: [doc/design.md](doc/design.md)
+> A Windows desktop task manager that arranges tasks on an importance × urgency matrix,
+> with status as the third axis (color + filter). Built with Tauri 2 + React.
+
+![Quadrith のマトリクス画面（ライト）](docs/images/screenshot-light.png)
+
+<details>
+<summary>ダークテーマ</summary>
+
+![Quadrith のマトリクス画面（ダーク）](docs/images/screenshot-dark.png)
+
+</details>
+
+📖 **使い方**: [doc/manual.md](doc/manual.md)（ユーザーマニュアル）
+🛠 **開発者向け**: 仕様 [doc/requirements.md](doc/requirements.md) / 設計 [doc/design.md](doc/design.md)
 
 ## 技術スタック
 
 Tauri 2.x / React 18 + TypeScript / Zustand / Tailwind CSS v4 / SQLite (tauri-plugin-sql)
+フォントは Inter + Noto Sans JP を `@fontsource` でオフライン同梱（外部通信なし）。
+
+## 主な機能
+
+**マトリクス & 配置**
+- ドラッグで任意位置に配置 → 正規化座標(0.0〜1.0)で即時保存
+- カード重なりの衝突回避レイアウト(決定的・黄金角スパイラル)、4枚以上は「+N」クラスタに集約
+- インボックスレーン(未仕分けタスクの受け皿)、双方向ドラッグで仕分け/差し戻し
+
+**タスク編集**
+- CRUD + 削除の Undo トースト(論理削除、30日後に起動時物理削除)
+- 5状態の色分け・フィルタ(未着手/進行中/保留/待ち/完了)
+- 期限日・タグ・メモ(Markdown 対応)・再確認日、カード右クリックメニュー
+
+**ビュー**
+- マトリクス / カンバン(列間ドラッグで状態変更) / アーカイブ・ごみ箱 / 統計
+- タグ絞り込み・タイトル/メモ検索(一覧系ビュー共通)
+- 完了 → 既定24時間後にマトリクスから自動退避(アーカイブ判定は表示時計算)
+
+**リマインド & 通知**
+- 期限 / 再確認日 / 第2領域(重要×非緊急)の放置 を1リストに集約(ヘッダーのベル)
+- 期限・再確認日は指定時刻(既定 9:00)に Windows トースト通知
+
+**データ**
+- SQLite。DBは任意のパス(Dropbox 等)に変更可能 → 簡易バックアップ・複数台持ち回り
+- 起動時の自動バックアップ(3世代)+ 設定画面からの手動バックアップ(`VACUUM INTO`)
+- JSON / CSV エクスポート、スキーママイグレーション基盤(`PRAGMA user_version`、現行 v2)
+
+**運用 / 堅牢性**
+- システムトレイ常駐、グローバルホットキーでのクイック追加、Windows 起動時の常駐(autostart)
+- 多重起動防止(2つ目は既存ウィンドウをフォーカス)
+- DB未検出 → リカバリダイアログ / DB破損・マイグレーション失敗 → バックアップ復元画面
+- ウィンドウ位置・サイズの記憶(モニタ外なら中央へ復帰)
+
+**UI**
+- 高密度プロツール志向(Linear 風)・インディゴアクセント・ライト/ダーク両対応
+- カスタムタイトルバー(枠なし) / 主要オーバーレイにグラス効果
+
+> 機能の実装フェーズ履歴は [design.md §10](doc/design.md)、要件と対応状況は
+> [requirements.md §5](doc/requirements.md) を参照。
 
 ## デザイン
 
-高密度プロツール志向(Linear 風)。インディゴのアクセント、Inter + Noto Sans JP(オフライン
-同梱、仕様§6 準拠)。配色は [src/index.css](src/index.css) の `@theme` で Tailwind の
-slate/blue ランプ・影・フォントを一括再定義しており、各コンポーネントの既存ユーティリティ
-クラスのまま全体の見た目を切り替えている(ライト/ダーク両対応、ダーク基調が映える)。
-ステータス5色はユーザー設定値なのでこのトークンとは独立。
+配色は [src/index.css](src/index.css) の `@theme` で Tailwind の slate/blue ランプ・影・フォントを
+一括再定義しており、各コンポーネントの既存ユーティリティクラスのまま全体の見た目を切り替えている
+(ステータス5色はユーザー設定値なので独立)。
+テーマはクラス方式(`html.dark`)+ `color-scheme`、システム連動はメディアクエリ監視。
 
 **カスタムタイトルバー**: メインウィンドウは `decorations: false`(枠なし)。ヘッダー自体が
-タイトルバーを兼ね、ロゴ・ビュータブ・検索・ウィンドウ操作(最小化/最大化/閉じる)を1本に
-統合([WindowControls.tsx](src/components/common/WindowControls.tsx))。`data-tauri-drag-region`
-でドラッグ移動、[ResizeHandles.tsx](src/components/common/ResizeHandles.tsx) で縁リサイズを保証
-(Windows の枠なし対策)。閉じるは OS と同じ経路(`closeToTray` 判定)を通る。
-**グラス効果**: ポップオーバー・コンテキストメニュー・モーダル・トーストに `backdrop-blur`。
+タイトルバーを兼ね、ロゴ・ビュータブ・検索・ウィンドウ操作(最小化/最大化/閉じる)を1本に統合
+([WindowControls.tsx](src/components/common/WindowControls.tsx))。`data-tauri-drag-region` で
+ドラッグ移動、[ResizeHandles.tsx](src/components/common/ResizeHandles.tsx) で縁リサイズを保証。
+閉じるは OS と同じ経路(`closeToTray` 判定)を通る。アプリアイコンはヘッダーロゴと同一デザイン。
 
 ## 開発
 
 ```sh
-npm install        # 依存関係のインストール
-npm run tauri dev  # 開発実行(初回は Rust のビルドに数分かかる)
-npm test           # 単体テスト(coords / layout)
-npm run build      # フロントエンドの型チェック + ビルド
+npm install          # 依存関係のインストール
+npm run tauri dev    # 開発実行(初回は Rust のビルドに数分)
+npm test             # 単体・結合テスト(vitest, 53件)
+npm run build        # フロントエンドの型チェック + ビルド
 npm run tauri build  # 配布用ビルド
 ```
 
-## 実装状況: MVP(フェーズ1)
+- テストは純粋関数(coords / layout / quadrant / reminders / stats / export / switchPlan /
+  windowClamp)に加え、マイグレーション SQL を **better-sqlite3** のインメモリDBで検証。
+- ディレクトリ構成は [design.md §2](doc/design.md) を参照。
+- アイコン変更時は差分ビルドだと再埋め込みされないことがある。`cargo clean -p quadrith
+  --manifest-path src-tauri/Cargo.toml` 後に再ビルドする。
 
-- [x] タスクの CRUD(削除は論理削除 + undo トースト、30日後に起動時物理削除)
-- [x] マトリクス上のドラッグ配置と正規化座標(0.0〜1.0)の保存
-- [x] カード重なりの衝突回避レイアウト(決定的・黄金角スパイラル)
-- [x] インボックスレーン(未仕分けタスクの受け皿、クイック追加入力付き)
-- [x] 5状態の管理と色分け・フィルタ(未着手/進行中/保留/待ち/完了)
-- [x] 期限日・タグ・メモ・再確認日(詳細パネル)
-- [x] 完了 → 24時間後にマトリクスから自動非表示(アーカイブ判定は表示時計算)
-- [x] データのローカル保存(SQLite、既定: `%APPDATA%/com.quadrith.app/tasks.db`)
-- [x] スキーママイグレーション基盤(`PRAGMA user_version`)
-- [x] 起動時の自動バックアップ(`<DBフォルダ>/backups/` に3世代保持)
-
-## 実装状況: フェーズ2
-
-- [x] グローバルホットキーでのクイック追加(既定: `Ctrl+Shift+Space`、専用小ウィンドウ)
-- [x] システムトレイ常駐(左クリックで表示、メニューから終了)・閉じるボタンでトレイへ最小化
-- [x] 期限当日の通知(Windowsトースト、既定 9:00。Rust側スケジューラ + `lastNotifiedDate` で同日二重通知を防止)
-- [x] アーカイブビュー(完了一覧・復元・ごみ箱からの復元/完全削除)
-- [x] 状態別カンバンビュー(列間ドラッグで状態変更)
-- [x] タグでの絞り込み・タイトル/メモの検索(全ビュー共通)
-- [x] 密集時のクラスタ表示(同一箇所に4枚以上 →「+N」バッジ、クリックで吹き出し展開)
-
-## 実装状況: フェーズ3(分析系)
-
-- [x] 第2領域(重要×非緊急)の放置タスクリマインド(既定14日更新なしで検出)
-- [x] 再確認日(review_at)による保留・待ちタスクの通知(期限通知と統合)
-- [x] リマインドのアプリ内表示(ヘッダーのベル、期限/再確認/放置を1リストに集約)
-- [x] 完了タスクの象限分布の統計(統計ビュー、緊急象限 Q1+Q3 の割合を可視化)
-- [x] JSON / CSV エクスポート(論理削除分も含む全タスク・タグ、保存ダイアログ)
-
-## 実装状況: フェーズ4(設定画面)
-
-ヘッダー右の歯車から開く。AppSettings は変更時に即時保存(楽観更新)。
-
-- [x] **DBファイルの保存先の変更**(仕様書 §7.3): フォルダ選択 → 対象 `<dir>/tasks.db` の
-  有無で分岐(なし=移動 / 空で新規作成、あり=既存を開く / 上書き)。切替失敗時は
-  旧パスへ自動ロールバック。「場所を開く」でエクスプローラ表示
-- [x] 自動バックアップの保持世代数・保存先、「今すぐバックアップ」(`VACUUM INTO`)
-- [x] 状態ごとの色のカスタマイズ
-- [x] 完了→アーカイブまでの時間
-- [x] テーマ(ライト / ダーク / システム連動。主要画面をダーク対応)
-- [x] クイック追加ホットキーの変更(即時に再登録)
-- [x] Windows 起動時の常駐(autostart)
-- [x] 閉じるボタンの挙動(終了 / トレイへ最小化)
-- [x] 通知の発火時刻
-
-## 実装状況: 堅牢性(仕様の取りこぼし対応)
-
-監査で見つかった「仕様に明記されているが未実装だった」項目を補完済み。
-
-- [x] **起動時にDBが見つからない場合のダイアログ**(仕様書 §7.4 / §5.1-3):
-  保存済みパスのファイルが無ければ「探す / この場所に新規作成 / 既定に戻す」を提示。
-  クラウド同期フォルダ未マウント時に空DBを黙って作る事故を防ぐ
-  ([lib/db.ts](src/lib/db.ts) `checkDbAvailability` / `recoverDbPath`)
-- [x] **DB open / マイグレーション失敗時のバックアップ復元画面**(仕様書 §7 / §5.1-5):
-  `backups/` の一覧から選んで復元 → 再試行([lib/backup.ts](src/lib/backup.ts) `listBackups` / `restoreBackup`)
-- [x] **ウィンドウ位置・サイズの保存/復元**(設計書 §3 `BootstrapSettings.window`):
-  settings.json に物理座標で保存([lib/windowState.ts](src/lib/windowState.ts))
-- [x] **カード右クリックメニュー**(仕様書 §4.2): 状態変更 / インボックスへ戻す / 削除
-  ([components/common/CardContextMenu.tsx](src/components/common/CardContextMenu.tsx))
-
-## 実装状況: 仕上げ
-
-- [x] **メモの Markdown 表示**(仕様書 §4.3「Markdown可だとなお良い」):
-  詳細パネルのメモを編集/プレビュー切替に。react-markdown + remark-gfm(GFM:
-  表・打ち消し・タスクリスト対応)、`dangerouslySetInnerHTML` 不使用で XSS 安全
-  ([components/panel/MemoField.tsx](src/components/panel/MemoField.tsx))
-- [x] **ダーク配色の網羅** — 詳細パネル/統計/カード/期限バッジ等の残りの明色面に
-  ダーク variant を付与。全サーフェスがライト/ダークで一貫
-
-これで仕様書・設計書の機能項目を **すべて実装完了**(フェーズ1〜3 + 設定機能 §7 +
-起動時の堅牢性 §7.4 + 仕上げ)。
-
-## 実装状況: 品質改善(レビュー指摘の反映)
-
-- [x] **メモのMarkdownリンクは外部ブラウザで開く** — WebView 遷移でアプリが消える不具合を修正([MemoField.tsx](src/components/panel/MemoField.tsx) `ExternalLink` → opener)
-- [x] **`updatedAt` を楽観更新と DB で一致** — ストアで生成した時刻を repo へ渡す
-- [x] **多重起動ガード** — `tauri-plugin-single-instance` で2つ目の起動は既存ウィンドウをフォーカス([lib.rs](src-tauri/src/lib.rs))
-- [x] **ウィンドウ復元位置のモニタ内クランプ** — 画面外復元を防止([windowClamp.ts](src/lib/windowClamp.ts))
-- [x] **バックアップ保存先の統一** — 起動時・手動・復元すべて設定の `backupDir` を尊重([db.ts](src/lib/db.ts) `getBackupDir`)
-- [x] **テーマの起動時チラつき(FOUC)解消** — settings.json にミラーし DB ロード前に適用
-- [x] **タグの管理** — 設定画面でリネーム・色変更・削除([TagManager.tsx](src/components/settings/TagManager.tsx))
-- [x] **放置リマインドの基準を `last_progress_at` に** — 状態変更のみ更新。ドラッグ/タグ編集ではリセットされない(マイグレーション v2)
-- [x] **クイック追加は本体へイベント委譲** — 別ウィンドウが2本目のDB接続を張らない
-- [x] **結合テストの追加** — マイグレーションSQL(better-sqlite3 でインメモリ検証)・DBパス切替の分岐・ウィンドウクランプ(計53テスト)
-- [x] **アイコンボタンに `aria-label`**
-
-## 設計書からの意図的な差異
+## 設計上のポイント(設計書からの意図的な差異)
 
 - **マイグレーションは TS 側で実行**([src/lib/migrations.ts](src/lib/migrations.ts))。
-  tauri-plugin-sql の Rust 側マイグレーションは接続文字列単位の静的登録のため、
-  ユーザーが任意に変更できる DB パス(仕様 §6)に追従できない。
-  仕様書 §3 の「`PRAGMA user_version` で差分適用」を TS 側で実装した。
-- **バックアップは2種**([src/lib/backup.ts](src/lib/backup.ts))。起動時は DB を開く前
-  (WAL 非接続)なので単純ファイルコピー、設定画面からの手動バックアップは load 後なので
-  `VACUUM INTO`(設計書 §5.1 手順4の補足どおり)。世代数は DB を開く前に必要なため
-  ブートストラップ層(settings.json)にも保持する。
+  plugin-sql の Rust 側マイグレーションは接続文字列単位の静的登録で、ユーザーが任意に変更できる
+  DBパスに追従できないため。`PRAGMA user_version` を TS で管理する。
 - **任意パスのファイル I/O は Rust 側コマンドに集約**([src-tauri/src/fsops.rs](src-tauri/src/fsops.rs))。
-  DB は Dropbox 等の任意の場所(仕様書 §7.4)に置けるが、plugin-fs は appdata 等に
-  スコープが限定されるため、バックアップ・DBパス切替・エクスポートのファイル操作は
-  `std::fs` を使う。パス/フォルダ選択は tauri-plugin-dialog。
-- 使用プラグイン: sql / store / fs / global-shortcut / notification / dialog /
-  opener / autostart(+ tauri 本体の tray-icon)。
-- クイック追加は専用の小ウィンドウ(label: `quickadd`)で実装。メインと同じ
-  バンドルを共用し、[main.tsx](src/main.tsx) でウィンドウラベルにより振り分ける。
+  DB は Dropbox 等の任意の場所に置けるが、plugin-fs はスコープが appdata 等に限定されるため、
+  バックアップ・DBパス切替・エクスポートのファイル操作は `std::fs` で行う(パス選択は dialog)。
+- **バックアップは2種**([src/lib/backup.ts](src/lib/backup.ts))。起動時は DB を開く前
+  (WAL 非接続)なので単純コピー、手動は load 後なので `VACUUM INTO`。世代数・保存先・テーマは
+  DB を開く前に必要なため settings.json にもミラーする。
+- **クイック追加は専用ウィンドウ**(label: `quickadd`)。DB に触れず、イベントでメインへ追加を
+  委譲して同一DBへの2接続を避ける。メインと同じバンドルを [main.tsx](src/main.tsx) でラベル振り分け。
+- **使用プラグイン**: sql / store / fs / dialog / global-shortcut / notification / opener /
+  autostart / single-instance(+ tauri 本体の tray-icon)。
 
 ## データ保存先
 
 | 内容 | 場所 |
 |---|---|
-| ブートストラップ設定(dbPath) | `%APPDATA%/com.quadrith.app/settings.json` |
+| ブートストラップ設定 | `%APPDATA%/com.quadrith.app/settings.json`(dbPath・ウィンドウ・一部ミラー) |
 | タスク DB | 既定 `%APPDATA%/com.quadrith.app/tasks.db`(設定画面から任意の場所へ変更可能) |
 | 自動バックアップ | 既定は DB と同じフォルダの `backups/tasks_YYYYMMDD_HHMMSS.db`(設定で変更可能) |

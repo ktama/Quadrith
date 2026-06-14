@@ -20,7 +20,9 @@ pub fn fs_make_dir(path: String) -> Result<(), String> {
 
 #[tauri::command]
 pub fn fs_copy_file(from: String, to: String) -> Result<(), String> {
-    std::fs::copy(&from, &to).map(|_| ()).map_err(|e| e.to_string())
+    std::fs::copy(&from, &to)
+        .map(|_| ())
+        .map_err(|e| e.to_string())
 }
 
 #[tauri::command]

@@ -4,4 +4,13 @@ src-tauri/target/
 src-tauri/gen/schemas/
 app-icon.png
 *.local
+
+# logs / env
+*.log
+.env
+.env.*
+
+# OS / editor
 .DS_Store
+Thumbs.db
+ehthumbs.db

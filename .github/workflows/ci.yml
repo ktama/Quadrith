@@ -1,0 +1,43 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  check:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - name: Install dependencies
+        run: npm ci
+
+      # フロントエンドの型チェック + ビルド(dist を生成。Rust の generate_context が参照する)
+      - name: Build frontend
+        run: npm run build
+
+      - name: Unit / integration tests
+        run: npm test
+
+      - name: Rust format check
+        run: cargo fmt --manifest-path src-tauri/Cargo.toml -- --check
+
+      # clippy はアプリ全体をコンパイルするのでビルド確認も兼ねる
+      - name: Rust clippy
+        run: cargo clippy --manifest-path src-tauri/Cargo.toml
