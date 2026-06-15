@@ -192,6 +192,19 @@ export default function App() {
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
+  // WebView 既定のコンテキストメニューを抑止(余白での右クリック対策)。
+  // 入力欄/テキストエリアではコピー&ペースト用に標準メニューを残す。
+  useEffect(() => {
+    const onContextMenu = (e: MouseEvent) => {
+      const el = e.target as HTMLElement | null;
+      const editable =
+        el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.isContentEditable);
+      if (!editable) e.preventDefault();
+    };
+    window.addEventListener("contextmenu", onContextMenu);
+    return () => window.removeEventListener("contextmenu", onContextMenu);
+  }, []);
+
   const handleRecover = async (mode: RecoverMode, locatedPath?: string) => {
     setBusy(true);
     await recoverDbPath(mode, locatedPath);
