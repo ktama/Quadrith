@@ -68,21 +68,32 @@ export function TagFilterChips() {
 export function SearchBox() {
   const searchQuery = useUiStore((s) => s.searchQuery);
   const setSearchQuery = useUiStore((s) => s.setSearchQuery);
+  const setPaletteOpen = useUiStore((s) => s.setPaletteOpen);
 
   return (
     <div className="relative">
       <input
-        className="text-xs border border-slate-300 dark:border-slate-600 rounded-full pl-3 pr-7 py-1.5 w-48 bg-white dark:bg-slate-700 dark:text-slate-100 focus:outline-blue-400"
+        className="text-xs border border-slate-300 dark:border-slate-600 rounded-full pl-3 pr-12 py-1.5 w-48 bg-white dark:bg-slate-700 dark:text-slate-100 focus:outline-blue-400"
         placeholder="タイトル・メモを検索"
         value={searchQuery}
         onChange={(e) => setSearchQuery(e.target.value)}
       />
-      {searchQuery && (
+      {searchQuery ? (
         <button
           className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
           onClick={() => setSearchQuery("")}
         >
           ×
+        </button>
+      ) : (
+        // コマンドパレットの導線(発見性)。クリックでもキーボードでも開ける
+        <button
+          className="absolute right-1.5 top-1/2 -translate-y-1/2 text-[10px] font-medium px-1.5 py-0.5 rounded border border-slate-300 dark:border-slate-600 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+          title="コマンドパレットを開く (Ctrl+K)"
+          aria-label="コマンドパレットを開く"
+          onClick={() => setPaletteOpen(true)}
+        >
+          Ctrl K
         </button>
       )}
     </div>

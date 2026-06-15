@@ -70,6 +70,10 @@ Tauri 2.x / React 18 + TypeScript / Zustand / Tailwind CSS v4 / SQLite (tauri-pl
 - DB未検出 → リカバリダイアログ / DB破損・マイグレーション失敗 → バックアップ復元画面
 - ウィンドウ位置・サイズの記憶(モニタ外なら中央へ復帰)
 
+**操作性**
+- コマンドパレット(Ctrl+K): ビュー移動・タスク検索ジャンプ・選択中への操作・新規作成をキーボードで
+- 複数選択(Ctrl/⌘+クリック)+ 一括操作(状態変更・タグ付け/外し・インボックスへ・削除、1回でUndo)
+
 **UI**
 - 高密度プロツール志向(Linear 風)・インディゴアクセント・ライト/ダーク両対応
 - カスタムタイトルバー(枠なし) / 主要オーバーレイにグラス効果
@@ -95,7 +99,7 @@ Tauri 2.x / React 18 + TypeScript / Zustand / Tailwind CSS v4 / SQLite (tauri-pl
 ```sh
 npm install          # 依存関係のインストール
 npm run tauri dev    # 開発実行(初回は Rust のビルドに数分)
-npm test             # 単体・結合テスト(vitest, 65件)
+npm test             # 単体・結合テスト(vitest)
 npm run build        # フロントエンドの型チェック + ビルド
 npm run tauri build  # 配布用ビルド
 ```
@@ -124,8 +128,8 @@ npm run tauri build  # 配布用ビルド
 
 ## データ保存先
 
-| 内容 | 場所 |
-|---|---|
-| ブートストラップ設定 | `%APPDATA%/com.quadrith.app/settings.json`(dbPath・ウィンドウ・一部ミラー) |
-| タスク DB | 既定 `%APPDATA%/com.quadrith.app/tasks.db`(設定画面から任意の場所へ変更可能) |
-| 自動バックアップ | 既定は DB と同じフォルダの `backups/tasks_YYYYMMDD_HHMMSS.db`(設定で変更可能) |
+| 内容                 | 場所                                                                          |
+| -------------------- | ----------------------------------------------------------------------------- |
+| ブートストラップ設定 | `%APPDATA%/com.quadrith.app/settings.json`(dbPath・ウィンドウ・一部ミラー)    |
+| タスク DB            | 既定 `%APPDATA%/com.quadrith.app/tasks.db`(設定画面から任意の場所へ変更可能)  |
+| 自動バックアップ     | 既定は DB と同じフォルダの `backups/tasks_YYYYMMDD_HHMMSS.db`(設定で変更可能) |

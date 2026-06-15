@@ -2,6 +2,7 @@
 // 書込はすべて楽観更新: UI を即時反映し、DB 書込が失敗したら巻き戻してトースト表示。
 
 import { create } from "zustand";
+import { partitionByResult } from "../lib/result";
 import * as tagRepo from "../repositories/tagRepo";
 import * as taskRepo from "../repositories/taskRepo";
 import type { Status, Task } from "../types/models";
@@ -130,7 +131,7 @@ export const useTaskStore = create<TaskState>()((set, get) => ({
       ui.clearSelection();
     }
     const results = await Promise.all(removed.map((t) => taskRepo.softDelete(t.id)));
-    const failed = removed.filter((_, i) => !results[i].ok);
+    const { ok: succeeded, failed } = partitionByResult(removed, results);
     if (failed.length > 0) {
       // 失敗した分だけ巻き戻す
       const failSet = new Set(failed.map((t) => t.id));
@@ -138,12 +139,12 @@ export const useTaskStore = create<TaskState>()((set, get) => ({
         tasks: sortByCreated([...s.tasks, ...failed]),
         lastRemoved: s.lastRemoved.filter((t) => !failSet.has(t.id)),
       }));
-      const err = results.find((r) => !r.ok);
-      if (err && !err.ok) useToastStore.getState().show(err.error.message, { kind: "error" });
+      const errRes = results.find((r) => !r.ok);
+      if (errRes && !errRes.ok) useToastStore.getState().show(errRes.error.message, { kind: "error" });
     }
-    const ok = removed.length - failed.length;
-    if (ok === 0) return;
-    const label = ok === 1 ? `「${removed[0].title}」を削除しました` : `${ok}件を削除しました`;
+    if (succeeded.length === 0) return;
+    const label =
+      succeeded.length === 1 ? `「${succeeded[0].title}」を削除しました` : `${succeeded.length}件を削除しました`;
     useToastStore.getState().show(label, {
       actionLabel: "元に戻す",
       onAction: () => void get().undoRemove(),
@@ -155,7 +156,7 @@ export const useTaskStore = create<TaskState>()((set, get) => ({
     if (removed.length === 0) return;
     set({ lastRemoved: [] });
     const results = await Promise.all(removed.map((t) => taskRepo.restore(t.id)));
-    const restored = removed.filter((_, i) => results[i].ok);
+    const { ok: restored } = partitionByResult(removed, results);
     const restoredSet = new Set(restored.map((t) => t.id));
     if (restored.length > 0) {
       set((s) => ({
@@ -163,8 +164,8 @@ export const useTaskStore = create<TaskState>()((set, get) => ({
         trashed: s.trashed.filter((t) => !restoredSet.has(t.id)),
       }));
     }
-    const err = results.find((r) => !r.ok);
-    if (err && !err.ok) useToastStore.getState().show(err.error.message, { kind: "error" });
+    const errRes = results.find((r) => !r.ok);
+    if (errRes && !errRes.ok) useToastStore.getState().show(errRes.error.message, { kind: "error" });
   },
 
   loadTrashed: async () => {

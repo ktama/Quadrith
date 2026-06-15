@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { toggleSelected } from "../lib/selection";
 import { STATUSES, type Status } from "../types/models";
 
 export type View = "matrix" | "kanban" | "recurring" | "archive" | "stats" | "settings";
@@ -58,12 +59,7 @@ export const useUiStore = create<UiState>()((set) => ({
 
   select: (id) => set({ selectedIds: id === null ? [] : [id] }),
 
-  toggleSelect: (id) =>
-    set((s) => ({
-      selectedIds: s.selectedIds.includes(id)
-        ? s.selectedIds.filter((x) => x !== id)
-        : [...s.selectedIds, id],
-    })),
+  toggleSelect: (id) => set((s) => ({ selectedIds: toggleSelected(s.selectedIds, id) })),
 
   clearSelection: () => set({ selectedIds: [] }),
 

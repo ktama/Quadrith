@@ -37,19 +37,22 @@ export function CommandPalette() {
   const [active, setActive] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
+  const prevFocusRef = useRef<HTMLElement | null>(null);
 
   const close = () => {
     setOpen(false);
     setQuery("");
   };
 
-  // 開いたら入力欄へフォーカス・状態リセット
+  // 開いたら入力欄へフォーカス・状態リセット。閉じたら元の要素へフォーカスを戻す。
   useEffect(() => {
     if (open) {
+      prevFocusRef.current = document.activeElement as HTMLElement | null;
       setQuery("");
       setActive(0);
       // モーダル表示直後に DOM が出来るのを待ってフォーカス
       requestAnimationFrame(() => inputRef.current?.focus());
+      return () => prevFocusRef.current?.focus?.();
     }
   }, [open]);
 
@@ -181,6 +184,9 @@ export function CommandPalette() {
     <div
       className="fixed inset-0 z-[60] flex items-start justify-center pt-[12vh] bg-black/30"
       onMouseDown={close}
+      role="dialog"
+      aria-modal="true"
+      aria-label="コマンドパレット"
     >
       <div
         className="w-[36rem] max-w-[90vw] max-h-[70vh] flex flex-col bg-white/90 dark:bg-slate-800/90 backdrop-blur-xl border border-slate-200 dark:border-slate-700 rounded-xl shadow-2xl overflow-hidden"
@@ -190,18 +196,32 @@ export function CommandPalette() {
           ref={inputRef}
           className="px-4 py-3 text-sm bg-transparent text-slate-800 dark:text-slate-100 placeholder-slate-400 outline-none border-b border-slate-200 dark:border-slate-700"
           placeholder="コマンド・タスクを検索…"
+          aria-label="コマンド・タスクを検索"
+          role="combobox"
+          aria-expanded="true"
+          aria-controls="command-palette-list"
+          aria-activedescendant={items[active] ? `cmd-opt-${active}` : undefined}
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           onKeyDown={onKeyDown}
         />
-        <div ref={listRef} className="flex-1 overflow-y-auto py-1">
+        <div
+          ref={listRef}
+          id="command-palette-list"
+          role="listbox"
+          aria-label="コマンド一覧"
+          className="flex-1 overflow-y-auto py-1"
+        >
           {items.length === 0 && (
             <div className="px-4 py-3 text-xs text-slate-400">該当するコマンドがありません</div>
           )}
           {items.map((item, idx) => (
             <button
               key={item.id}
+              id={`cmd-opt-${idx}`}
               data-idx={idx}
+              role="option"
+              aria-selected={idx === active}
               className={`w-full flex items-center gap-2 px-4 py-2 text-left text-sm ${
                 idx === active
                   ? "bg-blue-500 text-white"
