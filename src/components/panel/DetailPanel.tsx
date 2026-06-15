@@ -20,9 +20,12 @@ import {
   type Task,
 } from "../../types/models";
 import { useSettingsStore } from "../../stores/settingsStore";
+import { ColorPicker } from "../common/ColorPicker";
+import { DEFAULT_TAG_COLOR, readableTextColor } from "../../lib/tagColors";
 
 export function DetailPanel() {
-  const selectedId = useUiStore((s) => s.selectedTaskId);
+  // 1件選択時のみ詳細を表示(0件 or 2件以上は App 側で一括バー等に振り分け)
+  const selectedId = useUiStore((s) => (s.selectedIds.length === 1 ? s.selectedIds[0] : null));
   const task = useTaskStore((s) => s.tasks.find((t) => t.id === selectedId));
   if (!task) return null;
   // key でタスク切替時にローカル編集状態をリセット
@@ -43,7 +46,7 @@ function PanelInner({ task }: { task: Task }) {
   const [title, setTitle] = useState(task.title);
   const [memo, setMemo] = useState(task.memo);
   const [newTagName, setNewTagName] = useState("");
-  const [newTagColor, setNewTagColor] = useState("#3b82f6");
+  const [newTagColor, setNewTagColor] = useState(DEFAULT_TAG_COLOR);
   const [recurRule, setRecurRule] = useState<RecurrenceRule | null>(null);
 
   const registerRecurrence = () => {
@@ -194,10 +197,14 @@ function PanelInner({ task }: { task: Task }) {
                   key={t.id}
                   className={`text-xs px-2 py-0.5 rounded-full border transition-colors ${
                     active
-                      ? "text-white border-transparent"
+                      ? "border-transparent"
                       : "text-slate-600 dark:text-slate-200 border-slate-300 dark:border-slate-600"
                   }`}
-                  style={active ? { background: t.color } : {}}
+                  style={
+                    active
+                      ? { background: t.color, color: readableTextColor(t.color) }
+                      : {}
+                  }
                   onClick={() => toggleTag(t.id)}
                 >
                   {t.name}
@@ -205,28 +212,25 @@ function PanelInner({ task }: { task: Task }) {
               );
             })}
           </div>
-          <div className="flex gap-1.5 items-center">
-            <input
-              className="flex-1 min-w-0 text-xs border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100 rounded px-2 py-1 focus:outline-blue-400"
-              placeholder="新しいタグ"
-              value={newTagName}
-              onChange={(e) => setNewTagName(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") void addTag();
-              }}
-            />
-            <input
-              type="color"
-              className="w-7 h-7 p-0 border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100 rounded cursor-pointer"
-              value={newTagColor}
-              onChange={(e) => setNewTagColor(e.target.value)}
-            />
-            <button
-              className="text-xs px-2 py-1 rounded bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-600 dark:text-slate-200"
-              onClick={() => void addTag()}
-            >
-              追加
-            </button>
+          <div className="flex flex-col gap-1.5">
+            <div className="flex gap-1.5 items-center">
+              <input
+                className="flex-1 min-w-0 text-xs border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100 rounded px-2 py-1 focus:outline-blue-400"
+                placeholder="新しいタグ"
+                value={newTagName}
+                onChange={(e) => setNewTagName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") void addTag();
+                }}
+              />
+              <button
+                className="text-xs px-2 py-1 rounded bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-600 dark:text-slate-200 shrink-0"
+                onClick={() => void addTag()}
+              >
+                追加
+              </button>
+            </div>
+            <ColorPicker value={newTagColor} onChange={setNewTagColor} />
           </div>
         </div>
 

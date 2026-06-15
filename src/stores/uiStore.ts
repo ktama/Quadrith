@@ -15,23 +15,27 @@ export interface DragState {
 
 interface UiState {
   view: View;
-  selectedTaskId: string | null;
+  selectedIds: string[]; // 複数選択。1件のとき詳細パネル、2件以上で一括操作バー
   statusFilter: Status[];
   tagFilter: string[]; // 空 = 全タグ
   searchQuery: string;
   dragging: DragState | null;
   openClusterId: string | null; // 展開中の「+N」吹き出し
   contextMenu: { taskId: string; x: number; y: number } | null; // カード右クリックメニュー
+  paletteOpen: boolean; // コマンドパレット(Ctrl+K)
   now: number; // アーカイブ判定の再評価用(1分ごとに更新)
 
   setView: (view: View) => void;
-  select: (id: string | null) => void;
+  select: (id: string | null) => void; // 単一選択(従来クリック)
+  toggleSelect: (id: string) => void; // 修飾クリックで選択集合をトグル
+  clearSelection: () => void;
   toggleStatusFilter: (status: Status) => void;
   toggleTagFilter: (tagId: string) => void;
   setSearchQuery: (q: string) => void;
   setOpenClusterId: (id: string | null) => void;
   openContextMenu: (taskId: string, x: number, y: number) => void;
   closeContextMenu: () => void;
+  setPaletteOpen: (open: boolean) => void;
   startDrag: (id: string, offsetX: number, offsetY: number, x: number, y: number) => void;
   updateDrag: (x: number, y: number) => void;
   endDrag: () => void;
@@ -40,18 +44,28 @@ interface UiState {
 
 export const useUiStore = create<UiState>()((set) => ({
   view: "matrix",
-  selectedTaskId: null,
+  selectedIds: [],
   statusFilter: [...STATUSES],
   tagFilter: [],
   searchQuery: "",
   dragging: null,
   openClusterId: null,
   contextMenu: null,
+  paletteOpen: false,
   now: Date.now(),
 
   setView: (view) => set({ view, openClusterId: null, contextMenu: null }),
 
-  select: (id) => set({ selectedTaskId: id }),
+  select: (id) => set({ selectedIds: id === null ? [] : [id] }),
+
+  toggleSelect: (id) =>
+    set((s) => ({
+      selectedIds: s.selectedIds.includes(id)
+        ? s.selectedIds.filter((x) => x !== id)
+        : [...s.selectedIds, id],
+    })),
+
+  clearSelection: () => set({ selectedIds: [] }),
 
   toggleStatusFilter: (status) =>
     set((s) => ({
@@ -74,6 +88,8 @@ export const useUiStore = create<UiState>()((set) => ({
   openContextMenu: (taskId, x, y) => set({ contextMenu: { taskId, x, y } }),
 
   closeContextMenu: () => set({ contextMenu: null }),
+
+  setPaletteOpen: (open) => set({ paletteOpen: open }),
 
   startDrag: (id, offsetX, offsetY, x, y) => set({ dragging: { id, offsetX, offsetY, x, y } }),
 

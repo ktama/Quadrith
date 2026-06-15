@@ -2,6 +2,7 @@
 
 import { useTagStore } from "../../stores/tagStore";
 import { useUiStore, type View } from "../../stores/uiStore";
+import { readableTextColor } from "../../lib/tagColors";
 
 const VIEWS: { key: View; label: string }[] = [
   { key: "matrix", label: "マトリクス" },
@@ -50,10 +51,10 @@ export function TagFilterChips() {
             key={t.id}
             className={`text-xs px-2 py-0.5 rounded-full border transition-colors ${
               active
-                ? "text-white border-transparent"
+                ? "border-transparent"
                 : "bg-white dark:bg-slate-700 text-slate-500 dark:text-slate-300 border-slate-300 dark:border-slate-600"
             }`}
-            style={active ? { background: t.color } : {}}
+            style={active ? { background: t.color, color: readableTextColor(t.color) } : {}}
             onClick={() => toggle(t.id)}
           >
             {t.name}

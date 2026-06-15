@@ -7,6 +7,7 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { isArchived } from "../../lib/archive";
 import { matchesFilters } from "../../lib/taskFilters";
+import { readableTextColor } from "../../lib/tagColors";
 import { useSettingsStore } from "../../stores/settingsStore";
 import { useTagStore } from "../../stores/tagStore";
 import { useTaskStore } from "../../stores/taskStore";
@@ -42,8 +43,8 @@ function TaskRow({
           {cardTags.map((t) => (
             <span
               key={t.id}
-              className="text-[10px] px-1.5 rounded-full text-white"
-              style={{ background: t.color }}
+              className="text-[10px] px-1.5 rounded-full"
+              style={{ background: t.color, color: readableTextColor(t.color) }}
             >
               {t.name}
             </span>

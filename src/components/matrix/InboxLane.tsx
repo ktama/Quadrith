@@ -15,7 +15,7 @@ import { TaskCardBody } from "./TaskCard";
 
 function InboxCard({ task }: { task: Task }) {
   const { onPointerDown } = useDragCard(task.id);
-  const selected = useUiStore((s) => s.selectedTaskId === task.id);
+  const selected = useUiStore((s) => s.selectedIds.includes(task.id));
   const beingDragged = useUiStore((s) => s.dragging?.id === task.id);
   const openContextMenu = useUiStore((s) => s.openContextMenu);
 

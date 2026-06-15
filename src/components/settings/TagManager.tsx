@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useTagStore } from "../../stores/tagStore";
+import { ColorPicker } from "../common/ColorPicker";
 
 export function TagManager() {
   const tags = useTagStore((s) => s.tags);
@@ -22,16 +23,10 @@ export function TagManager() {
   }
 
   return (
-    <div className="flex flex-col gap-1.5">
+    <div className="flex flex-col gap-3">
       {tags.map((t) => (
-        <div key={t.id} className="flex items-center gap-2">
-          <input
-            type="color"
-            aria-label={`${t.name} の色`}
-            className="w-6 h-6 p-0 border border-slate-300 dark:border-slate-600 rounded cursor-pointer shrink-0"
-            value={t.color}
-            onChange={(e) => void recolor(t.id, e.target.value)}
-          />
+        <div key={t.id} className="flex flex-col gap-1.5">
+          <div className="flex items-center gap-2">
           {editing === t.id ? (
             <input
               autoFocus
@@ -57,17 +52,23 @@ export function TagManager() {
               {t.name}
             </button>
           )}
-          <button
-            aria-label={`タグ「${t.name}」を削除`}
-            className="text-xs px-2 py-1 rounded text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 shrink-0"
-            onClick={() => {
-              if (window.confirm(`タグ「${t.name}」を削除しますか?全タスクから外れます。`)) {
-                void remove(t.id);
-              }
-            }}
-          >
-            削除
-          </button>
+            <button
+              aria-label={`タグ「${t.name}」を削除`}
+              className="text-xs px-2 py-1 rounded text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 shrink-0"
+              onClick={() => {
+                if (window.confirm(`タグ「${t.name}」を削除しますか?全タスクから外れます。`)) {
+                  void remove(t.id);
+                }
+              }}
+            >
+              削除
+            </button>
+          </div>
+          <ColorPicker
+            value={t.color}
+            label={t.name}
+            onChange={(color) => void recolor(t.id, color)}
+          />
         </div>
       ))}
     </div>

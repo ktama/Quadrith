@@ -12,7 +12,7 @@ interface TaskState {
   tasks: Task[];
   trashed: Task[]; // ごみ箱(アーカイブビューで表示時に取得)
   loading: boolean;
-  lastRemoved: Task | null;
+  lastRemoved: Task[]; // 直近の削除分(単一・一括とも)。1回の Undo でまとめて復元
 
   load: () => Promise<void>;
   add: (title: string) => Promise<void>;
@@ -21,6 +21,7 @@ interface TaskState {
   setStatus: (id: string, status: Status) => Promise<void>;
   setTags: (id: string, tagIds: string[]) => Promise<void>;
   remove: (id: string) => Promise<void>;
+  removeMany: (ids: string[]) => Promise<void>;
   undoRemove: () => Promise<void>;
   loadTrashed: () => Promise<void>;
   restoreFromTrash: (id: string) => Promise<void>;
@@ -36,7 +37,7 @@ export const useTaskStore = create<TaskState>()((set, get) => ({
   tasks: [],
   trashed: [],
   loading: false,
-  lastRemoved: null,
+  lastRemoved: [],
 
   load: async () => {
     set({ loading: true });
@@ -111,19 +112,39 @@ export const useTaskStore = create<TaskState>()((set, get) => ({
 
   // 論理削除 + Undo トースト(設計書 §5.3)
   remove: async (id) => {
-    const prev = get().tasks.find((t) => t.id === id);
-    if (!prev) return;
-    set((s) => ({ tasks: s.tasks.filter((t) => t.id !== id), lastRemoved: prev }));
-    if (useUiStore.getState().selectedTaskId === id) {
-      useUiStore.getState().select(null);
+    await get().removeMany([id]);
+  },
+
+  // 一括論理削除。1回の Undo でまとめて復元する(lastRemoved に全件を保持)
+  removeMany: async (ids) => {
+    const idSet = new Set(ids);
+    const removed = get().tasks.filter((t) => idSet.has(t.id));
+    if (removed.length === 0) return;
+    set((s) => ({
+      tasks: s.tasks.filter((t) => !idSet.has(t.id)),
+      lastRemoved: removed,
+    }));
+    // 選択集合から削除分を取り除く
+    const ui = useUiStore.getState();
+    if (ui.selectedIds.some((id) => idSet.has(id))) {
+      ui.clearSelection();
     }
-    const res = await taskRepo.softDelete(id);
-    if (!res.ok) {
-      set((s) => ({ tasks: sortByCreated([...s.tasks, prev]), lastRemoved: null }));
-      useToastStore.getState().show(res.error.message, { kind: "error" });
-      return;
+    const results = await Promise.all(removed.map((t) => taskRepo.softDelete(t.id)));
+    const failed = removed.filter((_, i) => !results[i].ok);
+    if (failed.length > 0) {
+      // 失敗した分だけ巻き戻す
+      const failSet = new Set(failed.map((t) => t.id));
+      set((s) => ({
+        tasks: sortByCreated([...s.tasks, ...failed]),
+        lastRemoved: s.lastRemoved.filter((t) => !failSet.has(t.id)),
+      }));
+      const err = results.find((r) => !r.ok);
+      if (err && !err.ok) useToastStore.getState().show(err.error.message, { kind: "error" });
     }
-    useToastStore.getState().show(`「${prev.title}」を削除しました`, {
+    const ok = removed.length - failed.length;
+    if (ok === 0) return;
+    const label = ok === 1 ? `「${removed[0].title}」を削除しました` : `${ok}件を削除しました`;
+    useToastStore.getState().show(label, {
       actionLabel: "元に戻す",
       onAction: () => void get().undoRemove(),
     });
@@ -131,17 +152,19 @@ export const useTaskStore = create<TaskState>()((set, get) => ({
 
   undoRemove: async () => {
     const removed = get().lastRemoved;
-    if (!removed) return;
-    set({ lastRemoved: null });
-    const res = await taskRepo.restore(removed.id);
-    if (res.ok) {
+    if (removed.length === 0) return;
+    set({ lastRemoved: [] });
+    const results = await Promise.all(removed.map((t) => taskRepo.restore(t.id)));
+    const restored = removed.filter((_, i) => results[i].ok);
+    const restoredSet = new Set(restored.map((t) => t.id));
+    if (restored.length > 0) {
       set((s) => ({
-        tasks: sortByCreated([...s.tasks, { ...removed, deletedAt: null }]),
-        trashed: s.trashed.filter((t) => t.id !== removed.id),
+        tasks: sortByCreated([...s.tasks, ...restored.map((t) => ({ ...t, deletedAt: null }))]),
+        trashed: s.trashed.filter((t) => !restoredSet.has(t.id)),
       }));
-    } else {
-      useToastStore.getState().show(res.error.message, { kind: "error" });
     }
+    const err = results.find((r) => !r.ok);
+    if (err && !err.ok) useToastStore.getState().show(err.error.message, { kind: "error" });
   },
 
   loadTrashed: async () => {

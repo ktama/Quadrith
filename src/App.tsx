@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import { listen } from "@tauri-apps/api/event";
 import { ArchiveView } from "./components/archive/ArchiveView";
+import { BulkActionBar } from "./components/common/BulkActionBar";
 import { CardContextMenu } from "./components/common/CardContextMenu";
+import { CommandPalette } from "./components/common/CommandPalette";
 import { FilterChips } from "./components/common/FilterChips";
 import { SearchBox, TagFilterChips, ViewTabs } from "./components/common/HeaderControls";
 import { Reminders } from "./components/common/Reminders";
@@ -59,6 +61,7 @@ export default function App() {
   const loading = useTaskStore((s) => s.loading);
   const view = useUiStore((s) => s.view);
   const setView = useUiStore((s) => s.setView);
+  const selectedIds = useUiStore((s) => s.selectedIds);
 
   const [phase, setPhase] = useState<BootPhase>("checking");
   const [missingPath, setMissingPath] = useState("");
@@ -168,6 +171,25 @@ export default function App() {
       cancelled = true;
       for (const fn of cleanups) fn();
     };
+  }, []);
+
+  // コマンドパレット(Ctrl/⌘+K)と選択解除(Esc)のグローバルキー
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && (e.key === "k" || e.key === "K")) {
+        e.preventDefault();
+        const ui = useUiStore.getState();
+        ui.setPaletteOpen(!ui.paletteOpen);
+      } else if (e.key === "Escape") {
+        // 入力欄での Esc やパレット表示中は対象外(パレットは自身で Esc を処理)
+        const el = e.target as HTMLElement | null;
+        const typing = el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.isContentEditable);
+        const ui = useUiStore.getState();
+        if (!typing && !ui.paletteOpen && ui.selectedIds.length > 0) ui.clearSelection();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
   }, []);
 
   const handleRecover = async (mode: RecoverMode, locatedPath?: string) => {
@@ -283,11 +305,13 @@ export default function App() {
           {view === "stats" && <StatsView />}
           {view === "settings" && <SettingsView />}
         </main>
-        {view !== "settings" && <DetailPanel />}
+        {view !== "settings" &&
+          (selectedIds.length >= 2 ? <BulkActionBar /> : <DetailPanel />)}
       </div>
 
       <DragOverlay />
       <CardContextMenu />
+      <CommandPalette />
       <ToastContainer />
       <ResizeHandles />
     </div>

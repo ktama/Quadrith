@@ -21,7 +21,8 @@ function KanbanColumn({
 }) {
   const statusColors = useSettingsStore((s) => s.settings.statusColors);
   const select = useUiStore((s) => s.select);
-  const selectedId = useUiStore((s) => s.selectedTaskId);
+  const toggleSelect = useUiStore((s) => s.toggleSelect);
+  const selectedIds = useUiStore((s) => s.selectedIds);
   const openContextMenu = useUiStore((s) => s.openContextMenu);
   const [dragOver, setDragOver] = useState(false);
 
@@ -59,13 +60,13 @@ function KanbanColumn({
             key={t.id}
             draggable
             onDragStart={(e) => e.dataTransfer.setData("text/task-id", t.id)}
-            onClick={() => select(t.id)}
+            onClick={(e) => (e.ctrlKey || e.metaKey ? toggleSelect(t.id) : select(t.id))}
             onContextMenu={(e) => {
               e.preventDefault();
               openContextMenu(t.id, e.clientX, e.clientY);
             }}
           >
-            <TaskCardBody task={t} selected={selectedId === t.id} fluid />
+            <TaskCardBody task={t} selected={selectedIds.includes(t.id)} fluid />
           </div>
         ))}
       </div>

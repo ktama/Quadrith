@@ -21,6 +21,12 @@ export function useDragCard(taskId: string) {
     if (e.button !== 0) return;
     e.preventDefault();
 
+    // 修飾キー押下時はドラッグ移動せず、選択集合のトグルに専念する(複数選択)
+    if (e.ctrlKey || e.metaKey) {
+      useUiStore.getState().toggleSelect(taskId);
+      return;
+    }
+
     const cardRect = e.currentTarget.getBoundingClientRect();
     const offsetX = e.clientX - cardRect.left;
     const offsetY = e.clientY - cardRect.top;

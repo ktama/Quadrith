@@ -12,6 +12,7 @@ import {
 import { useTagStore } from "../../stores/tagStore";
 import { useTemplateStore, type TemplateInput } from "../../stores/templateStore";
 import type { RecurringTemplate } from "../../types/models";
+import { readableTextColor } from "../../lib/tagColors";
 
 interface Draft {
   id: string | null; // null = 新規
@@ -199,10 +200,10 @@ export function RecurringView() {
                       key={tag.id}
                       className={`text-xs px-2 py-0.5 rounded-full border transition-colors ${
                         active
-                          ? "text-white border-transparent"
+                          ? "border-transparent"
                           : "text-slate-600 dark:text-slate-200 border-slate-300 dark:border-slate-600"
                       }`}
-                      style={active ? { background: tag.color } : {}}
+                      style={active ? { background: tag.color, color: readableTextColor(tag.color) } : {}}
                       onClick={() =>
                         setDraft({
                           ...draft,
