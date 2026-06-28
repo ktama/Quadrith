@@ -39,6 +39,7 @@ function PanelInner({ task }: { task: Task }) {
   const remove = useTaskStore((s) => s.remove);
   const select = useUiStore((s) => s.select);
   const statusColors = useSettingsStore((s) => s.settings.statusColors);
+  const categories = useSettingsStore((s) => s.settings.categories);
   const tags = useTagStore((s) => s.tags);
   const createTag = useTagStore((s) => s.create);
   const createTemplate = useTemplateStore((s) => s.create);
@@ -61,6 +62,7 @@ function PanelInner({ task }: { task: Task }) {
       byweekday: recurRule.byweekday,
       bymonthday: recurRule.bymonthday,
       anchorDate: recurRule.anchorDate,
+      category: task.category,
       tagIds: task.tagIds,
       // この詳細パネルのタスク自身が anchor 当日ぶんを担うため、次回以降から生成する
       skipAnchorOccurrence: true,
@@ -163,6 +165,27 @@ function PanelInner({ task }: { task: Task }) {
             value={task.dueDate ?? ""}
             onChange={(e) => void patch(task.id, { dueDate: e.target.value || null })}
           />
+        </div>
+
+        {/* カテゴリ(Redmine エクスポート用, §4.8) */}
+        <div>
+          <label className="block text-xs text-slate-500 dark:text-slate-400 mb-1">カテゴリ</label>
+          <select
+            className="border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100 rounded px-2 py-1 focus:outline-blue-400"
+            value={task.category ?? ""}
+            onChange={(e) => void patch(task.id, { category: e.target.value || null })}
+          >
+            <option value="">(なし)</option>
+            {/* 候補から外れた既存の値も選択肢に残す */}
+            {task.category && !categories.includes(task.category) && (
+              <option value={task.category}>{task.category}</option>
+            )}
+            {categories.map((c) => (
+              <option key={c} value={c}>
+                {c}
+              </option>
+            ))}
+          </select>
         </div>
 
         {/* 再確認日(保留・待ちの死蔵防止) */}

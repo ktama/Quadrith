@@ -25,7 +25,7 @@ afterEach(() => {
 describe("migrations", () => {
   it("creates all tables and reaches the latest user_version", () => {
     applyAll(db);
-    expect(db.pragma("user_version", { simple: true })).toBe(3);
+    expect(db.pragma("user_version", { simple: true })).toBe(4);
     const tables = (
       db.prepare("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name").all() as {
         name: string;
@@ -74,6 +74,18 @@ describe("migrations", () => {
     expect(cols).toContain("last_progress_at");
   });
 
+  it("adds category to tasks and recurring_templates via the v4 migration", () => {
+    applyAll(db);
+    const taskCols = (db.prepare("PRAGMA table_info(tasks)").all() as { name: string }[]).map(
+      (c) => c.name,
+    );
+    const tplCols = (
+      db.prepare("PRAGMA table_info(recurring_templates)").all() as { name: string }[]
+    ).map((c) => c.name);
+    expect(taskCols).toContain("category");
+    expect(tplCols).toContain("category");
+  });
+
   it("is idempotent when re-applied (user_version guards)", () => {
     applyAll(db);
     // 既に最新なので、v1 を再実行しても IF NOT EXISTS / ADD COLUMN を踏まない想定
@@ -82,7 +94,7 @@ describe("migrations", () => {
       if (m.version <= current) continue;
       for (const sql of m.statements) db.exec(sql);
     }
-    expect(db.pragma("user_version", { simple: true })).toBe(3);
+    expect(db.pragma("user_version", { simple: true })).toBe(4);
   });
 
   it("enforces the importance/urgency null-together CHECK", () => {

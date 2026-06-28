@@ -1,3 +1,5 @@
+import type { Quadrant } from "../lib/quadrant";
+
 export type Status = "todo" | "doing" | "pending" | "waiting" | "done";
 
 export const STATUSES: Status[] = ["todo", "doing", "pending", "waiting", "done"];
@@ -25,6 +27,7 @@ export interface Task {
   completedAt: string | null;
   deletedAt: string | null;
   templateId: string | null; // 生成元の繰り返しひな型。null = 通常タスク
+  category: string | null; // 任意のカテゴリ(Redmine エクスポート用, §4.8)。null = 未設定
   tagIds: string[];
 }
 
@@ -53,6 +56,7 @@ export interface RecurringTemplate {
   active: boolean; // false = 停止
   createdAt: string;
   updatedAt: string;
+  category: string | null; // 実体へ継承するカテゴリ(§4.8)。null = 未設定
   tagIds: string[];
 }
 
@@ -73,7 +77,40 @@ export interface WindowState {
 export interface BootstrapSettings {
   dbPath: string;
   window?: WindowState;
+  redmineTracker?: string; // Redmine エクスポートのトラッカー名(§4.8)。未設定なら 'タスク'
 }
+
+// Redmine エクスポートのマッピング(仕様 §4.8 / 設計 §11)。トラッカー名は環境差で
+// インポート全失敗を招くため別途 settings.json に持つ(ここには含めない)。
+export type RedminePriorityKey = Quadrant | "inbox";
+
+export interface RedmineMapping {
+  statusMap: Record<Status, string>; // 5状態 → Redmine ステータス名
+  priorityMap: Record<RedminePriorityKey, string>; // 象限 → Redmine 優先度名
+  forceNewStatus: boolean; // Redmine ワークフロー対策: 全行を「新規」相当で出力
+  includeStartDate: boolean; // 開始日列(createdAt の日付)を出力するか
+  includeCategory: boolean; // カテゴリ列を出力するか
+}
+
+export const DEFAULT_REDMINE_MAPPING: RedmineMapping = {
+  statusMap: {
+    todo: "新規",
+    doing: "進行中",
+    pending: "フィードバック",
+    waiting: "フィードバック",
+    done: "終了",
+  },
+  priorityMap: {
+    q1: "急いで", // 重要 × 緊急
+    q2: "高め", // 重要 × 非緊急
+    q3: "通常", // 非重要 × 緊急
+    q4: "低め", // 非重要 × 非緊急
+    inbox: "通常", // 座標なし
+  },
+  forceNewStatus: false,
+  includeStartDate: true,
+  includeCategory: true,
+};
 
 // DB内 settings テーブル(アプリ設定層)
 export interface AppSettings {
@@ -86,6 +123,8 @@ export interface AppSettings {
   notifyTime: string; // 'HH:mm' 期限・再確認日通知の発火時刻
   backupGenerations: number;
   backupDir: string | null; // null = DBと同じフォルダの backups/
+  categories: string[]; // カテゴリ候補(タスクへ割当, §4.8)
+  redmineExport: RedmineMapping; // Redmine エクスポートのマッピング(§4.8)
 }
 
 export const DEFAULT_APP_SETTINGS: AppSettings = {
@@ -104,4 +143,6 @@ export const DEFAULT_APP_SETTINGS: AppSettings = {
   notifyTime: "09:00",
   backupGenerations: 3,
   backupDir: null,
+  categories: [],
+  redmineExport: DEFAULT_REDMINE_MAPPING,
 };

@@ -1,6 +1,6 @@
-# 3軸タスク管理アプリ 設計書(v2.0 / as-built)
+# 3軸タスク管理アプリ 設計書(v2.1 / as-built)
 
-対応仕様書: 仕様書 v1.2
+対応仕様書: 仕様書 v1.3
 このドキュメントは**現在の実装に同期**している。v1.0 からの設計判断の変更点は各節の「実装メモ」に記す。
 
 ## 1. アーキテクチャ概要
@@ -149,6 +149,7 @@ export interface Task {
   completedAt: string | null;
   deletedAt: string | null;
   templateId: string | null;   // 生成元の繰り返しひな型(null=通常タスク, migration v3)
+  category: string | null;     // 任意カテゴリ(Redmine エクスポート用, migration v4, §4.8)
   tagIds: string[];            // JOIN結果を集約して保持
 }
 
@@ -171,6 +172,7 @@ export interface RecurringTemplate {
   active: boolean;             // false=停止
   createdAt: string;
   updatedAt: string;
+  category: string | null;     // 実体へ継承するカテゴリ(migration v4, §4.8)
   tagIds: string[];
 }
 
@@ -194,6 +196,8 @@ export interface AppSettings {
   notifyTime: string;               // 'HH:mm' 既定 '09:00'
   backupGenerations: number;        // 既定 3
   backupDir: string | null;         // null = DBと同じフォルダ/backups
+  categories: string[];             // カテゴリ候補(§4.8)
+  redmineExport: RedmineMapping;    // statusMap/priorityMap/forceNewStatus/includeStartDate/includeCategory(§4.8/§11)
 }
 ```
 
@@ -386,6 +390,11 @@ const MIGRATIONS = [
   ]},
   // v3: 定期タスク。recurring_templates / template_tags / tasks.template_id を追加
   { version: 3, description: 'add recurring task templates', statements: [/* 仕様 §3 v3 参照 */] },
+  // v4: Redmine エクスポート用カテゴリ。tasks.category / recurring_templates.category を追加(§4.8)
+  { version: 4, description: 'add category for Redmine export', statements: [
+      `ALTER TABLE tasks ADD COLUMN category TEXT`,
+      `ALTER TABLE recurring_templates ADD COLUMN category TEXT`,
+  ]},
 ];
 // applyMigrations: PRAGMA user_version を読み、未適用分のみ順次 execute → user_version 更新
 ```
@@ -446,3 +455,99 @@ const MIGRATIONS = [
   (トークン・フォント・カスタムタイトルバー・グラス)。
 - フェーズ4(定期タスク): 繰り返しひな型(固定スケジュール型・毎日/週/月/年)/ 発生日の自動生成
   (まとめて1件・未完了時は重複生成しない)/ 専用ビュー・詳細パネルの🔁モーダル・カードの🔁(§4.7 / §5.7)。
+- フェーズ5(Redmine エクスポート): 期間指定の取込用 CSV 出力(未完了 + 繰り返し展開)/ ステータス・優先度
+  マッピング設定 / トラッカー名(settings.json) / カテゴリ(migration v4・タスク割当)・開始日の任意列(§4.8 / §11)。
+
+## 11. Redmine エクスポート(実装済み)
+
+仕様 §4.8。フェーズ A(出力)・B(マッピング設定 UI)・C(任意フィールド: 開始日/カテゴリ)実装済み。既存のエクスポート基盤(§4 の
+[export.ts](../src/lib/export.ts) 純粋関数 + [exportFile.ts](../src/lib/exportFile.ts) 保存フロー +
+[StatsView.tsx](../src/components/stats/StatsView.tsx) UI)を踏襲し、別系統の整形関数を足す。
+**ロジックは純粋関数に切り出して vitest で検証**(設計方針 §1 / CLAUDE.md)。
+
+### 11.1 モジュール構成
+
+```
+src/lib/redmineExport.ts        # 純粋関数: 対象選定 + 行展開 + CSV整形(新規)
+src/lib/exportFile.ts           # 期間引数つき保存関数を追加(既存に追記)
+src/components/stats/StatsView.tsx  # 「Redmine CSV」ボタン + 期間入力(既存に追記)
+src/types/models.ts             # AppSettings.redmineExport(フェーズB)
+```
+
+### 11.2 純粋関数(redmineExport.ts)
+
+```typescript
+// マッピング(設定値, models.ts の RedmineMapping)+ トラッカー(settings.json)
+export interface RedmineExportConfig extends RedmineMapping {  // RedmineMapping = statusMap/priorityMap/forceNewStatus
+  tracker: string;                                  // settings.json の redmineTracker(既定 'タスク')
+}
+export interface Period { from: string; to: string; }  // 'YYYY-MM-DD'(両端含む)
+
+// 出力対象の行を決定する(実体優先 + ひな型の欠損補完)。
+selectRedmineRows(
+  tasks: Task[], templates: RecurringTemplate[], period: Period,
+): RedmineRow[];
+
+// RedmineRow[] を CSV 文字列へ(BOM は付けない。付与は exportFile 側)。
+buildRedmineCsv(rows: RedmineRow[], tags: Tag[], config: RedmineExportConfig): string;
+```
+
+`selectRedmineRows` の手順:
+
+```
+1. 未完了タスク(status≠done かつ deletedAt=null)に絞る
+2. 通常タスク(templateId=null): dueDate が [from,to] 内のものを行化
+3. 繰り返し実体(templateId≠null): dueDate が [from,to] 内のものを行化し、
+   (templateId, dueDate) を「実体あり発生日」集合へ記録
+4. active な各ひな型: nextOnOrAfter を from から繰り返し呼んで [from,to] 内の発生日を列挙し、
+   3 の集合に無い発生日だけ行化(title/memo/座標/タグをひな型から継承, status='todo')
+```
+
+- 期間内発生日の列挙は [recurrence.ts](../src/lib/recurrence.ts) の `nextOnOrAfter(t, cursor)` を
+  `cursor = from → 返値+1日` で回し、返値が `to` を超えたら停止(`addDaysStr` で前進)。
+- 優先度は `quadrantOf`([quadrant.ts](../src/lib/quadrant.ts))、座標 null は `'inbox'` キー。
+- 説明はタグありのとき末尾へ `\n\n---\nタグ: A, B` を補記。CSV エスケープは export.ts の
+  `csvEscape`(`"` 囲み・`""`)を共用。ヘッダーは日本語列名・改行は CRLF。
+
+### 11.3 保存フロー(exportFile.ts)
+
+`exportRedmineCsv(period)`: トラッカーを settings.json(`redmineTracker`、既定 'タスク')から読み、
+マッピング既定値(フェーズ A は定数)と合わせて `RedmineExportConfig` を構成 →
+taskRepo.findAll / templateRepo.findAll / tagRepo.findAll → `selectRedmineRows` → 0 件なら警告で中断 →
+`buildRedmineCsv` → 先頭に BOM(`﻿`)→ 保存ダイアログ(`quadrith_redmine_YYYY-MM-DD.csv`)→
+`saveTextFile`(Rust fsops)。層は throw せず `Result<string | null>`(キャンセルは `ok(null)`)。
+
+### 11.4 設定
+
+- **トラッカー名は settings.json(ブートストラップ層)に `redmineTracker` として持たせ、ユーザーが
+  直接編集可能**(既定 'タスク')。Redmine 環境ごとに異なり、不一致だとインポート全体が失敗するため
+  設定ファイルで早期に変更可能とする。読み書きは [db.ts](../src/lib/db.ts) の
+  `readRedmineTracker` / `persistRedmineTracker`(theme 等と同じ settings.json 経由)。
+  `BootstrapSettings` に `redmineTracker?: string` を追加。設定画面([SettingsView.tsx](../src/components/settings/SettingsView.tsx))
+  からも編集できる(値は settings.json が正)。
+- **ステータス/優先度マッピング + 「全て新規にする」トグル**は `AppSettings.redmineExport`
+  (`RedmineMapping` = statusMap / priorityMap / forceNewStatus)として **DB 内 settings に 1 キー JSON** で
+  保持。DB を開く前には使わないので settings.json ミラー不要、列追加もないのでマイグレーション不要。
+  型・既定値(`RedmineMapping` / `DEFAULT_REDMINE_MAPPING`)は [models.ts](../src/types/models.ts) に定義し
+  (型循環を避けるため redmineExport.ts から参照)、`DEFAULT_APP_SETTINGS.redmineExport` に組み込む。
+  旧 DB・将来の状態/象限追加に備え、[settingsRepo.ts](../src/repositories/settingsRepo.ts) で
+  statusColors と同様にネストも既定値とディープマージする。設定画面でマッピングを編集。
+- `forceNewStatus` は Redmine ワークフロー(新規チケットに「新規」以外を設定不可な環境)対策で、
+  有効時は `buildRedmineCsv` が全行を `statusMap.todo` で出力する。
+
+### 11.6 任意フィールド(フェーズ C: 開始日・カテゴリ)
+
+- **カテゴリはタスクの新フィールド**(`Task.category` / `RecurringTemplate.category`, migration v4)。
+  候補は `AppSettings.categories: string[]` で管理([SettingsView](../src/components/settings/SettingsView.tsx))。
+  割当 UI は詳細パネル([DetailPanel](../src/components/panel/DetailPanel.tsx))の `<select>`、
+  繰り返しは [RecurringView](../src/components/recurring/RecurringView.tsx) のフォーム。候補から外れた
+  既存値も選択肢に残す。ひな型のカテゴリは生成実体・エクスポート展開行へ継承する(importance/tags と同様)。
+- **開始日**は `createdAt` の日付(`isoDate` = ISO 先頭10文字)。ひな型展開行は発生分に作成日がないため空。
+- `buildRedmineCsv` は `includeStartDate` / `includeCategory` に応じて「開始日」「カテゴリ」列を
+  `期日` の後ろへ動的に付加する(Redmine 取込は列位置非依存だが日本語ヘッダーで対応付けを容易にする)。
+- 既存の JSON/CSV 全体エクスポート([export.ts](../src/lib/export.ts))にも `category` 列を追加。
+
+### 11.5 テスト(redmineExport.test.ts)
+
+象限→優先度 / 状態マッピング / 期間境界(from・to の両端) / 繰り返し展開(日週月年・複数発生) /
+実体優先+発生日スキップ(二重計上しない) / 期日なし除外 / タグ補記 / CSV エスケープ / 0 件・大量。

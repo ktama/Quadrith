@@ -62,7 +62,8 @@ Tauri 2.x / React 18 + TypeScript / Zustand / Tailwind CSS v4 / SQLite (tauri-pl
 **データ**
 - SQLite。DBは任意のパス(Dropbox 等)に変更可能 → 簡易バックアップ・複数台持ち回り
 - 起動時の自動バックアップ(3世代)+ 設定画面からの手動バックアップ(`VACUUM INTO`)
-- JSON / CSV エクスポート、スキーママイグレーション基盤(`PRAGMA user_version`、現行 v3)
+- JSON / CSV エクスポート + Redmine 取込用 CSV(期間指定・繰り返し展開・マッピング設定)
+- スキーママイグレーション基盤(`PRAGMA user_version`、現行 v4)
 
 **運用 / 堅牢性**
 - システムトレイ常駐、グローバルホットキーでのクイック追加、Windows 起動時の常駐(autostart)
@@ -104,8 +105,8 @@ npm run build        # フロントエンドの型チェック + ビルド
 npm run tauri build  # 配布用ビルド
 ```
 
-- テストは純粋関数(coords / layout / quadrant / reminders / stats / export / switchPlan /
-  windowClamp / recurrence)に加え、マイグレーション SQL を **better-sqlite3** のインメモリDBで検証。
+- テストは純粋関数(coords / layout / quadrant / reminders / stats / export / redmineExport /
+  switchPlan / windowClamp / recurrence)に加え、マイグレーション SQL を **better-sqlite3** のインメモリDBで検証。
 - ディレクトリ構成は [design.md §2](doc/design.md) を参照。
 - アイコン変更時は差分ビルドだと再埋め込みされないことがある。`cargo clean -p quadrith
   --manifest-path src-tauri/Cargo.toml` 後に再ビルドする。

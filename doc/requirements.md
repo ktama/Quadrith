@@ -1,4 +1,4 @@
-# 3軸タスク管理アプリ 仕様書(v1.2 / as-built)
+# 3軸タスク管理アプリ 仕様書(v1.3 / as-built)
 
 このドキュメントは**現在の実装に同期**している。設計の詳細は [design.md](./design.md) を参照。
 当初仕様(v1.1)からの変更・追加は各節の「実装メモ」に記す。
@@ -27,7 +27,7 @@ UI は「高密度プロツール(Linear 風)/ インディゴアクセント / 
 
 ## 3. データモデル
 
-スキーマは [migrations.ts](../src/lib/migrations.ts) が管理(`PRAGMA user_version`、現行 **v3**)。
+スキーマは [migrations.ts](../src/lib/migrations.ts) が管理(`PRAGMA user_version`、現行 **v4**)。
 
 ```sql
 -- v1: 初期スキーマ
@@ -87,6 +87,10 @@ CREATE TABLE template_tags (
   tag_id      TEXT NOT NULL REFERENCES tags(id) ON DELETE CASCADE,
   PRIMARY KEY (template_id, tag_id)
 );
+
+-- v4: Redmine エクスポート用のカテゴリ。§4.8
+ALTER TABLE tasks ADD COLUMN category TEXT;               -- 任意カテゴリ(NULL=未設定)
+ALTER TABLE recurring_templates ADD COLUMN category TEXT; -- 実体・展開行へ継承
 ```
 
 設計ポイント:
@@ -203,6 +207,86 @@ CREATE TABLE template_tags (
 エクスポート([export.ts](../src/lib/export.ts))は CSV に `template_id` 列を追加し、
 JSON にはひな型一覧 `templates` を追加(`schemaVersion` 2)。
 
+### 4.8 Redmine エクスポート(CSV インポート用) — 未実装(計画)
+
+Quadrith のタスクを **Redmine の「チケットのインポート(CSV)」** で取り込める CSV として出力する。
+Redmine 側インポートはアップロード時に「CSV 列 → Redmine フィールド」をユーザーが対応付けできるため、
+本機能の責務は **マッピングしやすい列構成で、値が Redmine の選択肢名と一致した CSV を吐く**こと。
+既存の JSON/CSV エクスポート(§4.6)とは別系統で、用途は他ツールへの移行・連携。
+
+**出力対象**(期間 `[from, to]` 指定。既定 `今日 〜 今日+30日`):
+
+1. **通常タスク**(`templateId=null`・未完了 = `status≠done` かつ `deletedAt=null`):
+   `dueDate` が期間内のものを各 1 行。**期日なし(インボックス含む)は対象外**。
+2. **繰り返し実体**(`templateId≠null`・未完了): `dueDate` が期間内ならそのまま出力(編集を保持)。
+3. **ひな型展開**(`active` なひな型): 期間内の発生日を列挙し、**実体が存在しない発生日だけ** 1 行ずつ補完
+   (= 実体優先 + 欠損補完。発生日が一致する実体があればスキップして二重計上を防ぐ)。
+4. ガード: 対象 0 件は警告して中断 / 大量(目安 1000 行超)は確認を挟む。
+
+**フィールドマッピング**(既定値。すべて設定で変更可):
+
+| Redmine 列(日本語ヘッダー) | ソース            | 既定変換                                                          |
+| --------------------------- | ----------------- | ---------------------------------------------------------------- |
+| 題名                        | `title`/ひな型 title | そのまま(必須)                                                |
+| 説明                        | `memo` + タグ補記 | Markdown 原文(変換なし)。タグありなら末尾に `\n\n---\nタグ: A, B` |
+| トラッカー                  | 設定ファイル値    | 既定「タスク」(settings.json で直接変更可。下記)                 |
+| ステータス                  | `status`          | todo→新規 / doing→進行中 / pending・waiting→フィードバック / done→終了 |
+| 優先度                      | 象限              | Q1→急いで / Q2→高め / Q3→通常 / Q4→低め / インボックス→通常       |
+| 期日                        | `dueDate`/発生日  | `YYYY-MM-DD`                                                      |
+| 開始日(任意・設定でON/OFF)  | `createdAt` の日付 | 通常タスク・実体のみ。ひな型展開行は空(発生分に作成日なし)        |
+| カテゴリ(任意・設定でON/OFF) | `category`        | タスクごとに割当(候補は設定で管理)。ひな型展開行はひな型から継承   |
+
+- **重要度×緊急度は優先度(1 軸)に圧縮**する(説明補記・カスタムフィールドは行わない)。象限は
+  [quadrant.ts](../src/lib/quadrant.ts) の判定を用いる。
+- ひな型展開行は `status='todo'`(=新規)、優先度はひな型の象限から算出。
+- id 列は付けない(展開行に安定 ID が無いため。再インポート更新は将来課題)。
+
+**CSV フォーマット**: UTF-8 + BOM / カンマ区切り / `"` 囲み・`""` エスケープ / CRLF
+(既存 [export.ts](../src/lib/export.ts) の `csvEscape` を流用)。
+
+**設定**:
+
+- **トラッカー名は settings.json(ブートストラップ設定ファイル)に持たせ、ユーザーが直接編集可能**にする
+  (既定「タスク」)。Redmine 環境ごとにトラッカー名が異なり、不一致だとインポート全体が失敗するため、
+  設定 UI を待たず **フェーズ A から設定ファイルで変更可能**とする。列追加もないのでマイグレーション不要。
+
+  ```json
+  // settings.json の例(該当キーのみ)
+  { "redmineTracker": "作業" }
+  ```
+
+- **ステータス/優先度マッピング**は `AppSettings.redmineExport` として DB 内 settings テーブルに 1 キー JSON で
+  保持する(DB を開く前には使わないので settings.json ミラー不要)。フェーズ A は既定値を関数内に持ち、
+  フェーズ B で設定画面から編集可能にする。
+
+  ```ts
+  redmineExport: {
+    statusMap: Record<Status, string>;                // 5状態 → Redmine ステータス名
+    priorityMap: Record<Quadrant | "inbox", string>;  // 象限 → Redmine 優先度名
+    forceNewStatus: boolean;                          // 全行を「新規」相当で出力
+    includeStartDate: boolean;                        // 開始日列の出力
+    includeCategory: boolean;                         // カテゴリ列の出力
+  }
+  ```
+
+- **カテゴリ候補**は `AppSettings.categories: string[]` で管理(設定画面で追加/削除)。タスクは詳細パネル、
+  繰り返しひな型は専用ビューのフォームから割り当てる。カテゴリはタグとは独立(自由文字列 + 候補リスト)。
+
+**既知の制約**(マニュアルに注記):
+
+- Redmine のワークフロー設定により、新規チケットへ「新規」以外のステータスを直接設定できない環境がある。
+- トラッカー名が Redmine 側に存在しないとインポート全体が失敗する → settings.json の `redmineTracker` を実環境に合わせる。
+- Redmine のテキスト書式は Markdown 設定を推奨(textile 設定だと崩れる)。
+
+**段階的実装計画**:
+
+- **フェーズ A(MVP)**: 純粋関数 `buildRedmineCsv`(+ vitest)/ 期間引数つき保存関数 /
+  統計ビューに「Redmine CSV」ボタン + 期間入力。トラッカーは settings.json(`redmineTracker`)から読む。
+  ステータス/優先度マッピングは既定値をハードコード。
+- **フェーズ B**: 設定画面でマッピングを編集(`AppSettings.redmineExport` 拡張)+「全て新規にする」トグル。
+  トラッカーも設定画面から編集可能にする(値は引き続き settings.json が正)。
+- **フェーズ C**: 区切り/エンコーディング選択、開始日・進捗率など任意フィールド、id 一意キーでの再取込更新。
+
 ## 5. 機能要件(実装状況)
 
 ### MVP(フェーズ1)
@@ -238,6 +322,13 @@ JSON にはひな型一覧 `templates` を追加(`schemaVersion` 2)。
 - [x] 詳細パネルの🔁ボタン(モーダル) + 定期タスク専用ビュー + カードの🔁アイコン
 - [x] マイグレーション v3(`recurring_templates` / `template_tags` / `tasks.template_id`)
 - [x] エクスポート CSV に `template_id` 列を追加
+
+### フェーズ5(外部連携)
+- [x] Redmine エクスポート(CSV インポート用)。期間指定・未完了対象・繰り返し展開(§4.8)
+- [x] フェーズ A(MVP): 純粋関数 `buildRedmineCsv` + 保存 + 統計ビューのボタン
+- [x] フェーズ B: マッピング/トラッカーの設定 UI(`AppSettings.redmineExport` + settings.json の `redmineTracker`)+「全て新規にする」トグル
+- [x] フェーズ C(任意フィールド): 開始日・カテゴリ列(設定でON/OFF)。カテゴリはタスクごとに割当(migration v4 + 候補管理)
+- [ ] フェーズ C(残): 区切り/エンコーディング選択・id一意キーでの再取込更新
 
 ### 仕様外の追加実装(堅牢性・運用)
 - [x] 起動時にDBが見つからない場合のリカバリダイアログ(探す/新規作成/既定に戻す)
@@ -281,6 +372,8 @@ settings.json へもミラーする(ブートストラップ層が正)。
 **データ**: DB保存先の表示・変更(フォルダ選択)・「場所を開く」/ 自動バックアップの保持世代数・
 保存先 / 「今すぐバックアップ」(VACUUM INTO)。
 **表示**: 状態ごとの色 / 完了→アーカイブまでの時間 / テーマ(ライト/ダーク/システム連動)/ タグ管理。
+**カテゴリ**: カテゴリ候補の追加・削除(§4.8)。
+**Redmine エクスポート**: トラッカー名 / ステータス・優先度マッピング / 全て新規にする / 開始日・カテゴリ列の出力(§4.8)。
 **動作**: クイック追加ホットキー(即時再登録)/ Windows起動時の常駐 / 閉じるボタンの挙動(終了 or
 トレイへ最小化)/ 通知の発火時刻。
 

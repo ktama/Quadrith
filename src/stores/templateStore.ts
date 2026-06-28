@@ -21,6 +21,7 @@ export interface TemplateInput {
   byweekday: number[];
   bymonthday: number | null;
   anchorDate: string; // 'YYYY-MM-DD'
+  category: string | null;
   tagIds: string[];
   // 既存タスクからのひな型化時 true: anchor 当日ぶんは元タスクが担うので
   // 最初の生成は anchor の翌日以降の発生日からにする(当日の重複生成を防ぐ)。
@@ -79,6 +80,7 @@ export const useTemplateStore = create<TemplateState>()((set, get) => ({
       active: true,
       createdAt: now,
       updatedAt: now,
+      category: input.category,
       tagIds: input.tagIds,
     };
     const nextDue = input.skipAnchorOccurrence
@@ -121,6 +123,7 @@ export const useTemplateStore = create<TemplateState>()((set, get) => ({
       byweekday: [...input.byweekday].sort((a, b) => a - b),
       bymonthday: input.bymonthday,
       anchorDate: input.anchorDate,
+      category: input.category,
       tagIds: input.tagIds,
       updatedAt: new Date().toISOString(),
     };
@@ -187,6 +190,7 @@ export const useTemplateStore = create<TemplateState>()((set, get) => ({
             status: "todo",
             dueDate: plan.dueDate,
             templateId: t.id,
+            category: t.category,
           });
           if (res.ok) {
             let task = res.value;

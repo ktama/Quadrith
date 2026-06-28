@@ -22,6 +22,7 @@ function task(p: Partial<Task>): Task {
     completedAt: null,
     deletedAt: null,
     templateId: null,
+    category: null,
     tagIds: [],
     ...p,
   };

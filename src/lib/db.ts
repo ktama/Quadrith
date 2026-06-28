@@ -96,6 +96,21 @@ export async function readThemePref(): Promise<AppSettings["theme"] | null> {
   return t === "light" || t === "dark" || t === "system" ? t : null;
 }
 
+// Redmine エクスポートのトラッカー名(仕様 §4.8)。Redmine 環境ごとに異なり、不一致だと
+// インポート全体が失敗するため、設定 UI を待たず settings.json で直接変更できるよう
+// ブートストラップ層に持つ。未設定なら 'タスク'。
+export async function readRedmineTracker(): Promise<string> {
+  const store = await loadStore("settings.json", { autoSave: true, defaults: {} });
+  const t = await store.get<string>("redmineTracker");
+  return typeof t === "string" && t.trim() !== "" ? t : "タスク";
+}
+
+export async function persistRedmineTracker(tracker: string): Promise<void> {
+  const store = await loadStore("settings.json", { autoSave: true, defaults: {} });
+  await store.set("redmineTracker", tracker.trim());
+  await store.save();
+}
+
 // ブートストラップ設定(settings.json)から DB パスを取得。未設定なら既定値を書き込む。
 async function resolveDbPath(): Promise<string> {
   const dataDir = await appDataDir();

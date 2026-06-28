@@ -2,16 +2,30 @@
 // データ / 表示 / 動作 の3セクション。AppSettings は settingsStore 経由で即時保存。
 // DBパス切替は §7.3 の分岐(移動 / 新規作成 / 既存を開く / 上書き)を確認モーダルで扱う。
 
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { open } from "@tauri-apps/plugin-dialog";
 import { join } from "@tauri-apps/api/path";
 import { fsExists } from "../../lib/fsops";
-import type { SwitchMode } from "../../lib/db";
+import { persistRedmineTracker, readRedmineTracker, type SwitchMode } from "../../lib/db";
 import { registerQuickAddHotkey, revealInExplorer, syncAutostart } from "../../lib/desktop";
 import { useSettingsStore } from "../../stores/settingsStore";
 import { useToastStore } from "../../stores/toastStore";
-import { STATUSES, STATUS_LABELS, type Status } from "../../types/models";
+import {
+  type RedminePriorityKey,
+  STATUSES,
+  STATUS_LABELS,
+  type Status,
+} from "../../types/models";
 import { TagManager } from "./TagManager";
+
+// Redmine 優先度マッピングの行(象限 + インボックス)
+const REDMINE_PRIORITY_ROWS: { key: RedminePriorityKey; label: string }[] = [
+  { key: "q1", label: "今すぐやる (重要×緊急)" },
+  { key: "q2", label: "計画する (重要×非緊急)" },
+  { key: "q3", label: "さばく・任せる (非重要×緊急)" },
+  { key: "q4", label: "やめる候補 (非重要×非緊急)" },
+  { key: "inbox", label: "インボックス (座標なし)" },
+];
 
 function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
@@ -52,6 +66,50 @@ export function SettingsView() {
   const [pending, setPending] = useState<PendingSwitch | null>(null);
   const [busy, setBusy] = useState(false);
   const [hotkeyDraft, setHotkeyDraft] = useState(settings.quickAddHotkey);
+  const [newCategory, setNewCategory] = useState("");
+  // トラッカーは settings.json(ブートストラップ層)が正。マウント時に読み込む。
+  const [trackerDraft, setTrackerDraft] = useState("");
+
+  useEffect(() => {
+    void readRedmineTracker().then(setTrackerDraft);
+  }, []);
+
+  const redmine = settings.redmineExport;
+
+  const saveTracker = async () => {
+    const v = trackerDraft.trim() || "タスク";
+    setTrackerDraft(v);
+    await persistRedmineTracker(v);
+    show("トラッカー名を保存しました");
+  };
+
+  const updateRedmineStatus = (s: Status, value: string) =>
+    void update("redmineExport", {
+      ...redmine,
+      statusMap: { ...redmine.statusMap, [s]: value },
+    });
+
+  const updateRedminePriority = (key: RedminePriorityKey, value: string) =>
+    void update("redmineExport", {
+      ...redmine,
+      priorityMap: { ...redmine.priorityMap, [key]: value },
+    });
+
+  const addCategory = () => {
+    const name = newCategory.trim();
+    if (!name || settings.categories.includes(name)) {
+      setNewCategory("");
+      return;
+    }
+    void update("categories", [...settings.categories, name]);
+    setNewCategory("");
+  };
+
+  const removeCategory = (name: string) =>
+    void update(
+      "categories",
+      settings.categories.filter((c) => c !== name),
+    );
 
   // DBの保存先フォルダを選び、対象パス(<dir>/tasks.db)の存在で分岐を決める(§7.3)
   const pickDbFolder = async () => {
@@ -211,6 +269,134 @@ export function SettingsView() {
         {/* タグ管理 */}
         <Section title="タグ">
           <TagManager />
+        </Section>
+
+        {/* カテゴリ(タスクに割当 / Redmine エクスポートのカテゴリ列, §4.8) */}
+        <Section title="カテゴリ">
+          <Row label="カテゴリ候補" hint="タスクの詳細パネルから割り当てられます">
+            <div className="flex flex-col gap-2 items-end">
+              {settings.categories.length > 0 && (
+                <div className="flex flex-wrap gap-1.5 justify-end">
+                  {settings.categories.map((c) => (
+                    <span
+                      key={c}
+                      className="flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-200"
+                    >
+                      {c}
+                      <button
+                        className="text-slate-400 hover:text-red-500 leading-none"
+                        onClick={() => removeCategory(c)}
+                        aria-label={`カテゴリ「${c}」を削除`}
+                      >
+                        ×
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              )}
+              <div className="flex gap-1.5 items-center">
+                <input
+                  className="w-40 text-sm border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100 rounded px-2 py-1"
+                  placeholder="新しいカテゴリ"
+                  value={newCategory}
+                  onChange={(e) => setNewCategory(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") addCategory();
+                  }}
+                />
+                <button
+                  className="text-xs px-3 py-1.5 rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 dark:text-slate-100 hover:bg-slate-50 dark:hover:bg-slate-600"
+                  onClick={addCategory}
+                >
+                  追加
+                </button>
+              </div>
+            </div>
+          </Row>
+        </Section>
+
+        {/* Redmine エクスポート(§4.8) */}
+        <Section title="Redmine エクスポート">
+          <Row
+            label="トラッカー名"
+            hint="Redmine に存在する名前に合わせてください(不一致だとインポート全体が失敗します)"
+          >
+            <input
+              className="w-40 text-sm border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100 rounded px-2 py-1"
+              value={trackerDraft}
+              onChange={(e) => setTrackerDraft(e.target.value)}
+              onBlur={() => void saveTracker()}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") void saveTracker();
+              }}
+            />
+          </Row>
+
+          <Row label="ステータスの対応" hint="左:本アプリの状態 / 右:Redmine のステータス名">
+            <div className="flex flex-col gap-1.5">
+              {STATUSES.map((s: Status) => (
+                <div key={s} className="flex items-center gap-2">
+                  <span className="text-xs text-slate-400 w-12 text-right">{STATUS_LABELS[s]}</span>
+                  <input
+                    className="w-32 text-sm border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100 rounded px-2 py-1"
+                    value={redmine.statusMap[s]}
+                    onChange={(e) => updateRedmineStatus(s, e.target.value)}
+                  />
+                </div>
+              ))}
+            </div>
+          </Row>
+
+          <Row label="優先度の対応" hint="象限(重要度×緊急度)→ Redmine の優先度名">
+            <div className="flex flex-col gap-1.5">
+              {REDMINE_PRIORITY_ROWS.map(({ key, label }) => (
+                <div key={key} className="flex items-center gap-2">
+                  <span className="text-xs text-slate-400 w-44 text-right">{label}</span>
+                  <input
+                    className="w-32 text-sm border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100 rounded px-2 py-1"
+                    value={redmine.priorityMap[key]}
+                    onChange={(e) => updateRedminePriority(key, e.target.value)}
+                  />
+                </div>
+              ))}
+            </div>
+          </Row>
+
+          <Row
+            label="すべて「新規」で出力する"
+            hint="Redmine のワークフロー上、新規チケットに他のステータスを設定できない場合に有効"
+          >
+            <input
+              type="checkbox"
+              className="w-4 h-4"
+              checked={redmine.forceNewStatus}
+              onChange={(e) =>
+                void update("redmineExport", { ...redmine, forceNewStatus: e.target.checked })
+              }
+            />
+          </Row>
+
+          <Row label="開始日の列を出力する" hint="作成日(日付)を Redmine の開始日として出力">
+            <input
+              type="checkbox"
+              className="w-4 h-4"
+              checked={redmine.includeStartDate}
+              onChange={(e) =>
+                void update("redmineExport", { ...redmine, includeStartDate: e.target.checked })
+              }
+            />
+          </Row>
+
+          <Row label="カテゴリの列を出力する">
+            <input
+              type="checkbox"
+              className="w-4 h-4"
+              checked={redmine.includeCategory}
+              onChange={(e) =>
+                void update("redmineExport", { ...redmine, includeCategory: e.target.checked })
+              }
+            />
+          </Row>
         </Section>
 
         {/* 動作 */}

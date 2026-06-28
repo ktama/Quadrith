@@ -39,10 +39,12 @@ const CSV_HEADERS = [
   "completed_at",
   "deleted_at",
   "template_id",
+  "category",
   "tags",
 ];
 
-function csvEscape(v: string): string {
+// CSV セルのエスケープ(", カンマ, 改行を含むなら "" 囲み)。Redmine 整形でも共用する。
+export function csvEscape(v: string): string {
   return /[",\r\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v;
 }
 
@@ -66,6 +68,7 @@ export function buildCsv(bundle: ExportBundle): string {
       t.completedAt ?? "",
       t.deletedAt ?? "",
       t.templateId ?? "",
+      t.category ?? "",
       tags,
     ];
     lines.push(cells.map(csvEscape).join(","));

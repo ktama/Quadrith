@@ -3,7 +3,12 @@
 
 import { getDb } from "../lib/db";
 import { err, ok, type Result } from "../lib/result";
-import { DEFAULT_APP_SETTINGS, type AppSettings } from "../types/models";
+import {
+  DEFAULT_APP_SETTINGS,
+  DEFAULT_REDMINE_MAPPING,
+  type AppSettings,
+  type RedmineMapping,
+} from "../types/models";
 
 export async function loadAppSettings(): Promise<Result<AppSettings>> {
   try {
@@ -19,12 +24,20 @@ export async function loadAppSettings(): Promise<Result<AppSettings>> {
         // 壊れた値は無視して既定値にフォールバック
       }
     }
+    const storedRedmine = stored.redmineExport as Partial<RedmineMapping> | undefined;
     const merged: AppSettings = {
       ...DEFAULT_APP_SETTINGS,
       ...stored,
       statusColors: {
         ...DEFAULT_APP_SETTINGS.statusColors,
         ...(stored.statusColors as Record<string, string> | undefined),
+      },
+      // 旧DB・将来の状態/象限追加に備えてネストも既定値とマージする
+      redmineExport: {
+        ...DEFAULT_REDMINE_MAPPING,
+        ...storedRedmine,
+        statusMap: { ...DEFAULT_REDMINE_MAPPING.statusMap, ...storedRedmine?.statusMap },
+        priorityMap: { ...DEFAULT_REDMINE_MAPPING.priorityMap, ...storedRedmine?.priorityMap },
       },
     };
     return ok(merged);

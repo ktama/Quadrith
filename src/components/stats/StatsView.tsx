@@ -4,9 +4,12 @@
 // データ系の機能としてエクスポート(JSON/CSV)もここに置く。
 
 import { useMemo, useState } from "react";
-import { exportData, type ExportFormat } from "../../lib/exportFile";
+import { exportData, exportRedmineCsv, type ExportFormat } from "../../lib/exportFile";
+import { todayLocal } from "../../lib/notifications";
 import { QUADRANT_GRID_ORDER, QUADRANT_LABELS, type Quadrant } from "../../lib/quadrant";
+import { addDaysStr } from "../../lib/recurrence";
 import { completionStats } from "../../lib/stats";
+import { useSettingsStore } from "../../stores/settingsStore";
 import { useTaskStore } from "../../stores/taskStore";
 import { useToastStore } from "../../stores/toastStore";
 
@@ -29,8 +32,12 @@ function pct(ratio: number): string {
 
 export function StatsView() {
   const tasks = useTaskStore((s) => s.tasks);
+  const redmineMapping = useSettingsStore((s) => s.settings.redmineExport);
   const show = useToastStore((s) => s.show);
   const [exporting, setExporting] = useState<ExportFormat | null>(null);
+  const [redmineFrom, setRedmineFrom] = useState(todayLocal());
+  const [redmineTo, setRedmineTo] = useState(addDaysStr(todayLocal(), 30));
+  const [redmineBusy, setRedmineBusy] = useState(false);
 
   const stats = useMemo(() => completionStats(tasks), [tasks]);
   const byQ = useMemo(
@@ -49,6 +56,23 @@ export function StatsView() {
       show(res.error.message, { kind: "error" });
     } else if (res.value) {
       show(`${format.toUpperCase()} をエクスポートしました`);
+    }
+  };
+
+  const runRedmineExport = async () => {
+    if (redmineFrom > redmineTo) {
+      show("開始日は終了日以前にしてください", { kind: "error" });
+      return;
+    }
+    setRedmineBusy(true);
+    const res = await exportRedmineCsv({ from: redmineFrom, to: redmineTo }, redmineMapping);
+    setRedmineBusy(false);
+    if (!res.ok) {
+      show(res.error.message, { kind: "error" });
+    } else if (res.value.kind === "empty") {
+      show("期間内に対象タスクがありません", { kind: "error" });
+    } else if (res.value.kind === "saved") {
+      show(`Redmine CSV を出力しました(${res.value.count} 件)`);
     }
   };
 
@@ -71,6 +95,41 @@ export function StatsView() {
               </button>
             ))}
           </div>
+        </div>
+
+        {/* Redmine 取込用 CSV(期間指定。未完了 + 期間内の繰り返しを出力) */}
+        <div className="rounded-lg border border-slate-200 dark:border-slate-700 p-4 flex flex-col gap-3">
+          <div className="flex items-center justify-between gap-3 flex-wrap">
+            <h3 className="text-sm font-semibold text-slate-600 dark:text-slate-200">
+              Redmine エクスポート
+            </h3>
+            <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-300">
+              <input
+                type="date"
+                value={redmineFrom}
+                onChange={(e) => setRedmineFrom(e.target.value)}
+                className="px-2 py-1 rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 dark:text-slate-100"
+              />
+              <span>〜</span>
+              <input
+                type="date"
+                value={redmineTo}
+                onChange={(e) => setRedmineTo(e.target.value)}
+                className="px-2 py-1 rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 dark:text-slate-100"
+              />
+              <button
+                disabled={redmineBusy}
+                className="text-xs px-3 py-1.5 rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 dark:text-slate-100 hover:bg-slate-50 dark:hover:bg-slate-600 text-slate-600 disabled:opacity-50"
+                onClick={() => void runRedmineExport()}
+              >
+                {redmineBusy ? "出力中..." : "Redmine CSV"}
+              </button>
+            </div>
+          </div>
+          <p className="text-xs text-slate-400">
+            未完了タスク(期日が期間内)と、期間内に発生する繰り返しを Redmine 取込用 CSV
+            に出力します。トラッカー名・ステータス/優先度のマッピングは設定画面で変更できます。
+          </p>
         </div>
 
         {stats.total === 0 ? (

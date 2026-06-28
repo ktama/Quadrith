@@ -21,6 +21,7 @@ interface TemplateRow {
   active: number;
   created_at: string;
   updated_at: string;
+  category: string | null;
   tag_ids: string | null;
 }
 
@@ -47,6 +48,7 @@ function rowToTemplate(r: TemplateRow): RecurringTemplate {
     active: r.active !== 0,
     createdAt: r.created_at,
     updatedAt: r.updated_at,
+    category: r.category,
     tagIds: r.tag_ids ? r.tag_ids.split(",") : [],
   };
 }
@@ -67,8 +69,8 @@ export async function create(t: RecurringTemplate): Promise<Result<void>> {
     await db.execute(
       `INSERT INTO recurring_templates
          (id, title, memo, importance, urgency, freq, interval, byweekday, bymonthday,
-          anchor_date, next_due, active, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          anchor_date, next_due, active, created_at, updated_at, category)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         t.id,
         t.title,
@@ -84,6 +86,7 @@ export async function create(t: RecurringTemplate): Promise<Result<void>> {
         t.active ? 1 : 0,
         t.createdAt,
         t.updatedAt,
+        t.category,
       ],
     );
     return ok(undefined);
@@ -99,7 +102,7 @@ export async function update(t: RecurringTemplate): Promise<Result<void>> {
     await db.execute(
       `UPDATE recurring_templates SET
          title = ?, memo = ?, importance = ?, urgency = ?, freq = ?, interval = ?,
-         byweekday = ?, bymonthday = ?, anchor_date = ?, next_due = ?, active = ?, updated_at = ?
+         byweekday = ?, bymonthday = ?, anchor_date = ?, next_due = ?, active = ?, updated_at = ?, category = ?
        WHERE id = ?`,
       [
         t.title,
@@ -114,6 +117,7 @@ export async function update(t: RecurringTemplate): Promise<Result<void>> {
         t.nextDue,
         t.active ? 1 : 0,
         t.updatedAt,
+        t.category,
         t.id,
       ],
     );

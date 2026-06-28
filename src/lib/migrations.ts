@@ -99,6 +99,16 @@ const MIGRATIONS: Migration[] = [
       )`,
     ],
   },
+  {
+    version: 4,
+    description: "add category for Redmine export",
+    statements: [
+      // 任意のカテゴリ(NULL=未設定)。Redmine の「カテゴリ」列に対応(仕様 §4.8)
+      `ALTER TABLE tasks ADD COLUMN category TEXT`,
+      // ひな型にも持たせ、生成される実体・エクスポートの展開行へ継承する
+      `ALTER TABLE recurring_templates ADD COLUMN category TEXT`,
+    ],
+  },
 ];
 
 export const MIGRATIONS_FOR_TEST = MIGRATIONS;

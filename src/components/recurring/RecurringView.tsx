@@ -9,6 +9,7 @@ import {
   RecurrenceForm,
   type RecurrenceRule,
 } from "./RecurrenceForm";
+import { useSettingsStore } from "../../stores/settingsStore";
 import { useTagStore } from "../../stores/tagStore";
 import { useTemplateStore, type TemplateInput } from "../../stores/templateStore";
 import type { RecurringTemplate } from "../../types/models";
@@ -21,6 +22,7 @@ interface Draft {
   importance: number | null;
   urgency: number | null;
   rule: RecurrenceRule;
+  category: string | null;
   tagIds: string[];
 }
 
@@ -32,6 +34,7 @@ function newDraft(): Draft {
     importance: null,
     urgency: null,
     rule: defaultRule(),
+    category: null,
     tagIds: [],
   };
 }
@@ -50,6 +53,7 @@ function draftFrom(t: RecurringTemplate): Draft {
       bymonthday: t.bymonthday,
       anchorDate: t.anchorDate,
     },
+    category: t.category,
     tagIds: t.tagIds,
   };
 }
@@ -61,6 +65,7 @@ export function RecurringView() {
   const setActive = useTemplateStore((s) => s.setActive);
   const removeTemplate = useTemplateStore((s) => s.remove);
   const tags = useTagStore((s) => s.tags);
+  const categories = useSettingsStore((s) => s.settings.categories);
 
   const [draft, setDraft] = useState<Draft | null>(null);
 
@@ -78,6 +83,7 @@ export function RecurringView() {
       byweekday: draft.rule.byweekday,
       bymonthday: draft.rule.bymonthday,
       anchorDate: draft.rule.anchorDate,
+      category: draft.category,
       tagIds: draft.tagIds,
     };
     if (draft.id) void updateTemplate(draft.id, input);
@@ -190,6 +196,24 @@ export function RecurringView() {
               value={draft.memo}
               onChange={(e) => setDraft({ ...draft, memo: e.target.value })}
             />
+
+            {(categories.length > 0 || draft.category) && (
+              <select
+                className="w-full text-xs border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100 rounded px-2 py-1.5 focus:outline-blue-400"
+                value={draft.category ?? ""}
+                onChange={(e) => setDraft({ ...draft, category: e.target.value || null })}
+              >
+                <option value="">カテゴリ: (なし)</option>
+                {draft.category && !categories.includes(draft.category) && (
+                  <option value={draft.category}>{draft.category}</option>
+                )}
+                {categories.map((c) => (
+                  <option key={c} value={c}>
+                    {c}
+                  </option>
+                ))}
+              </select>
+            )}
 
             {tags.length > 0 && (
               <div className="flex flex-wrap gap-1.5">
