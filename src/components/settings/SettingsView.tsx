@@ -11,12 +11,17 @@ import { registerQuickAddHotkey, revealInExplorer, syncAutostart } from "../../l
 import { useSettingsStore } from "../../stores/settingsStore";
 import { useToastStore } from "../../stores/toastStore";
 import {
+  EFFORT_SIZES,
+  type EffortSize,
   type RedminePriorityKey,
   STATUSES,
   STATUS_LABELS,
   type Status,
+  type WeekStart,
 } from "../../types/models";
 import { TagManager } from "./TagManager";
+
+const WEEKDAY_LABELS = ["月", "火", "水", "木", "金", "土", "日"]; // ISO 1..7
 
 // Redmine 優先度マッピングの行(象限 + インボックス)
 const REDMINE_PRIORITY_ROWS: { key: RedminePriorityKey; label: string }[] = [
@@ -394,6 +399,104 @@ export function SettingsView() {
               checked={redmine.includeCategory}
               onChange={(e) =>
                 void update("redmineExport", { ...redmine, includeCategory: e.target.checked })
+              }
+            />
+          </Row>
+        </Section>
+
+        {/* Today / 工数 / 週次レビュー(§4.9〜4.11) */}
+        <Section title="Today / 工数 / レビュー">
+          <Row label="工数サイズの分換算" hint="S / M / L / XL に対応する分。容量・統計に反映">
+            <div className="flex gap-2">
+              {EFFORT_SIZES.map((sz: EffortSize) => (
+                <label key={sz} className="flex flex-col items-center gap-1">
+                  <span className="text-[10px] text-slate-400">{sz}</span>
+                  <input
+                    type="number"
+                    min={1}
+                    className="w-16 text-sm border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100 rounded px-2 py-1"
+                    value={settings.effortMinutes[sz]}
+                    onChange={(e) =>
+                      void update("effortMinutes", {
+                        ...settings.effortMinutes,
+                        [sz]: Math.max(1, Number(e.target.value) || 1),
+                      })
+                    }
+                  />
+                </label>
+              ))}
+            </div>
+          </Row>
+
+          <Row label="1日の可処分時間" hint="Today の容量メーターの分母">
+            <input
+              type="number"
+              min={1}
+              className="w-20 text-sm border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100 rounded px-2 py-1"
+              value={settings.dailyCapacityMinutes}
+              onChange={(e) =>
+                void update("dailyCapacityMinutes", Math.max(1, Number(e.target.value) || 1))
+              }
+            />
+            <span className="text-xs text-slate-400">分</span>
+          </Row>
+
+          <Row
+            label="Today に「今すぐやる」象限を含める"
+            hint="重要×緊急のタスクを自動グループへ取り込みます"
+          >
+            <input
+              type="checkbox"
+              className="w-4 h-4"
+              checked={settings.todayIncludeUrgentQuadrant}
+              onChange={(e) => void update("todayIncludeUrgentQuadrant", e.target.checked)}
+            />
+          </Row>
+
+          <Row label="統計の週の起点">
+            <select
+              className="text-sm border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100 rounded px-2 py-1"
+              value={settings.weekStart}
+              onChange={(e) => void update("weekStart", e.target.value as WeekStart)}
+            >
+              <option value="monday">月曜</option>
+              <option value="sunday">日曜</option>
+            </select>
+          </Row>
+
+          <Row label="週次レビューの毎週リマインド" hint="アプリ内バナーで通知します(既定オフ)">
+            <input
+              type="checkbox"
+              className="w-4 h-4"
+              checked={settings.weeklyReview.enabled}
+              onChange={(e) =>
+                void update("weeklyReview", { ...settings.weeklyReview, enabled: e.target.checked })
+              }
+            />
+            <select
+              className="text-sm border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100 rounded px-2 py-1 disabled:opacity-50"
+              disabled={!settings.weeklyReview.enabled}
+              value={settings.weeklyReview.weekday}
+              onChange={(e) =>
+                void update("weeklyReview", {
+                  ...settings.weeklyReview,
+                  weekday: Number(e.target.value),
+                })
+              }
+            >
+              {WEEKDAY_LABELS.map((label, i) => (
+                <option key={i} value={i + 1}>
+                  {label}
+                </option>
+              ))}
+            </select>
+            <input
+              type="time"
+              className="text-sm border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100 rounded px-2 py-1 disabled:opacity-50"
+              disabled={!settings.weeklyReview.enabled}
+              value={settings.weeklyReview.time}
+              onChange={(e) =>
+                void update("weeklyReview", { ...settings.weeklyReview, time: e.target.value })
               }
             />
           </Row>

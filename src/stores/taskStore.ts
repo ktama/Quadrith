@@ -3,11 +3,21 @@
 
 import { create } from "zustand";
 import { partitionByResult } from "../lib/result";
+import { carryOverToday } from "../lib/today";
 import * as tagRepo from "../repositories/tagRepo";
 import * as taskRepo from "../repositories/taskRepo";
-import type { Status, Task } from "../types/models";
+import type { EffortSize, Status, Task } from "../types/models";
 import { useToastStore } from "./toastStore";
 import { useUiStore } from "./uiStore";
+
+// ローカル日付 'YYYY-MM-DD'(today_date/繰り越し用)。notifications を import すると
+// tauri 依存を引き込むため、ここで軽量に算出する。
+function localToday(): string {
+  const d = new Date();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  return `${d.getFullYear()}-${m}-${dd}`;
+}
 
 interface TaskState {
   tasks: Task[];
@@ -21,6 +31,10 @@ interface TaskState {
   moveTo: (id: string, importance: number | null, urgency: number | null) => Promise<void>;
   setStatus: (id: string, status: Status) => Promise<void>;
   setTags: (id: string, tagIds: string[]) => Promise<void>;
+  setEffort: (ids: string[], size: EffortSize | null) => Promise<void>;
+  setToday: (ids: string[], on: boolean) => Promise<void>;
+  reorderToday: (orderedIds: string[]) => Promise<void>;
+  carryOverToday: () => Promise<void>;
   remove: (id: string) => Promise<void>;
   removeMany: (ids: string[]) => Promise<void>;
   undoRemove: () => Promise<void>;
@@ -109,6 +123,45 @@ export const useTaskStore = create<TaskState>()((set, get) => ({
       set((s) => ({ tasks: s.tasks.map((t) => (t.id === id ? prev : t)) }));
       useToastStore.getState().show(res.error.message, { kind: "error" });
     }
+  },
+
+  // 工数サイズの設定(単一・一括, 仕様 §4.10)。null で未見積りへ戻す。
+  setEffort: async (ids, size) => {
+    await Promise.all(ids.map((id) => get().patch(id, { effortSize: size })));
+  },
+
+  // 「今日やる」の付与/解除(単一・一括, 仕様 §4.9)。付与時は今日の末尾へ並べる。
+  // 順序番号は同期的に確定させ、DB書込は全件並列にする(逐次awaitだと選択件数分のラグが出る)。
+  setToday: async (ids, on) => {
+    const today = localToday();
+    if (on) {
+      const maxOrder = get().tasks.reduce(
+        (max, t) => (t.todayDate === today && t.todayOrder !== null ? Math.max(max, t.todayOrder) : max),
+        -1,
+      );
+      let next = maxOrder + 1;
+      const patches: Promise<void>[] = [];
+      for (const id of ids) {
+        const cur = get().tasks.find((t) => t.id === id);
+        if (cur?.todayDate === today) continue; // 既に今日やる
+        patches.push(get().patch(id, { todayDate: today, todayOrder: next }));
+        next++;
+      }
+      await Promise.all(patches);
+    } else {
+      await Promise.all(ids.map((id) => get().patch(id, { todayDate: null, todayOrder: null })));
+    }
+  },
+
+  // グループB の手動並び替え。渡された順に today_order を 0..n で振り直す。
+  reorderToday: async (orderedIds) => {
+    await Promise.all(orderedIds.map((id, i) => get().patch(id, { todayOrder: i })));
+  },
+
+  // 未完了の「今日やる」を当日へ繰り越す(起動時・日付変更時, 仕様 §4.9)。
+  carryOverToday: async () => {
+    const diffs = carryOverToday(get().tasks, localToday());
+    await Promise.all(diffs.map((d) => get().patch(d.id, { todayDate: d.todayDate })));
   },
 
   // 論理削除 + Undo トースト(設計書 §5.3)

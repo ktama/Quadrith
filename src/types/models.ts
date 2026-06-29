@@ -12,6 +12,11 @@ export const STATUS_LABELS: Record<Status, string> = {
   done: "完了",
 };
 
+// 工数の概算(Tシャツサイズ, 仕様 §4.10)。null = 未見積り
+export type EffortSize = "S" | "M" | "L" | "XL";
+
+export const EFFORT_SIZES: EffortSize[] = ["S", "M", "L", "XL"];
+
 export interface Task {
   id: string;
   title: string;
@@ -28,6 +33,9 @@ export interface Task {
   deletedAt: string | null;
   templateId: string | null; // 生成元の繰り返しひな型。null = 通常タスク
   category: string | null; // 任意のカテゴリ(Redmine エクスポート用, §4.8)。null = 未設定
+  effortSize: EffortSize | null; // 工数の概算(§4.10)。null = 未見積り
+  todayDate: string | null; // 「今日やる」予定日 'YYYY-MM-DD'(§4.9)。null = 未指定
+  todayOrder: number | null; // グループB(選択)の手動並び。null = 未指定
   tagIds: string[];
 }
 
@@ -57,6 +65,7 @@ export interface RecurringTemplate {
   createdAt: string;
   updatedAt: string;
   category: string | null; // 実体へ継承するカテゴリ(§4.8)。null = 未設定
+  effortSize: EffortSize | null; // 実体へ継承する工数(§4.10)。null = 未見積り
   tagIds: string[];
 }
 
@@ -112,6 +121,29 @@ export const DEFAULT_REDMINE_MAPPING: RedmineMapping = {
   includeCategory: true,
 };
 
+// 統計の週の起点(仕様 §4.11)
+export type WeekStart = "monday" | "sunday";
+
+// 週次レビューの毎週リマインド(仕様 §4.11)。既定オフ
+export interface WeeklyReviewSetting {
+  enabled: boolean; // 既定 false
+  weekday: number; // ISO 1=月〜7=日。既定 1(月)
+  time: string; // 'HH:mm'。既定 '09:00'
+}
+
+export const DEFAULT_EFFORT_MINUTES: Record<EffortSize, number> = {
+  S: 15,
+  M: 60,
+  L: 180,
+  XL: 480,
+};
+
+export const DEFAULT_WEEKLY_REVIEW: WeeklyReviewSetting = {
+  enabled: false,
+  weekday: 1,
+  time: "09:00",
+};
+
 // DB内 settings テーブル(アプリ設定層)
 export interface AppSettings {
   statusColors: Record<Status, string>;
@@ -125,6 +157,12 @@ export interface AppSettings {
   backupDir: string | null; // null = DBと同じフォルダの backups/
   categories: string[]; // カテゴリ候補(タスクへ割当, §4.8)
   redmineExport: RedmineMapping; // Redmine エクスポートのマッピング(§4.8)
+  effortMinutes: Record<EffortSize, number>; // 工数サイズ→分(§4.10)
+  dailyCapacityMinutes: number; // 容量メーターの分母(§4.9)。既定 360
+  todayIncludeUrgentQuadrant: boolean; // Today に「今すぐやる」象限を自動取り込み(§4.9)。既定 true
+  weekStart: WeekStart; // 統計の週起点(§4.11)。既定 'monday'
+  weeklyReview: WeeklyReviewSetting; // 週次レビューの毎週リマインド(§4.11)
+  lastReviewAt: string | null; // 前回レビュー日時 ISO(記録のみ, §4.11)
 }
 
 export const DEFAULT_APP_SETTINGS: AppSettings = {
@@ -145,4 +183,10 @@ export const DEFAULT_APP_SETTINGS: AppSettings = {
   backupDir: null,
   categories: [],
   redmineExport: DEFAULT_REDMINE_MAPPING,
+  effortMinutes: DEFAULT_EFFORT_MINUTES,
+  dailyCapacityMinutes: 360,
+  todayIncludeUrgentQuadrant: true,
+  weekStart: "monday",
+  weeklyReview: DEFAULT_WEEKLY_REVIEW,
+  lastReviewAt: null,
 };

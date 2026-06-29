@@ -45,9 +45,15 @@ Tauri 2.x / React 18 + TypeScript / Zustand / Tailwind CSS v4 / SQLite (tauri-pl
 - 期限日・タグ・メモ(Markdown 対応)・再確認日、カード右クリックメニュー
 
 **ビュー**
-- マトリクス / カンバン(列間ドラッグで状態変更) / 繰り返し / アーカイブ・ごみ箱 / 統計
+- Today / マトリクス / カンバン(列間ドラッグで状態変更) / 繰り返し / アーカイブ・ごみ箱 / 統計
 - タグ絞り込み・タイトル/メモ検索(一覧系ビュー共通)
 - 完了 → 既定24時間後にマトリクスから自動退避(アーカイブ判定は表示時計算)
+
+**Today / 工数 / 週次レビュー**
+- Today(フォーカスビュー): 締切・進行中(自動)＋「今日やる」(選択)の2グループ + 理由バッジ
+- 工数(S/M/L/XL): カードにバッジ表示、Today の容量メーター・統計の時間集計に反映(設定で分換算を変更可)
+- 「今日やる」は未完了なら翌日へ自動繰り越し(並び順は保持)、完了済みは計画遵守率の集計に使用
+- 統計の深掘り(週次スループット / 作成vs完了 / リードタイム / 計画遵守率 など)+ 操作できる週次レビュー(6ステップ)
 
 **定期タスク(繰り返し)**
 - ひな型(毎日 / 毎週・曜日指定 / 毎月・日付指定 / 毎年、N間隔)を登録 → 発生日に通常タスクを自動生成
@@ -63,7 +69,7 @@ Tauri 2.x / React 18 + TypeScript / Zustand / Tailwind CSS v4 / SQLite (tauri-pl
 - SQLite。DBは任意のパス(Dropbox 等)に変更可能 → 簡易バックアップ・複数台持ち回り
 - 起動時の自動バックアップ(3世代)+ 設定画面からの手動バックアップ(`VACUUM INTO`)
 - JSON / CSV エクスポート + Redmine 取込用 CSV(期間指定・繰り返し展開・マッピング設定)
-- スキーママイグレーション基盤(`PRAGMA user_version`、現行 v4)
+- スキーママイグレーション基盤(`PRAGMA user_version`、現行 v6)
 
 **運用 / 堅牢性**
 - システムトレイ常駐、グローバルホットキーでのクイック追加、Windows 起動時の常駐(autostart)
@@ -73,7 +79,7 @@ Tauri 2.x / React 18 + TypeScript / Zustand / Tailwind CSS v4 / SQLite (tauri-pl
 
 **操作性**
 - コマンドパレット(Ctrl+K): ビュー移動・タスク検索ジャンプ・選択中への操作・新規作成をキーボードで
-- 複数選択(Ctrl/⌘+クリック)+ 一括操作(状態変更・タグ付け/外し・インボックスへ・削除、1回でUndo)
+- 複数選択(Ctrl/⌘+クリック)+ 一括操作(状態変更・工数・今日やる・タグ付け/外し・インボックスへ・削除、1回でUndo)
 
 **UI**
 - 高密度プロツール志向(Linear 風)・インディゴアクセント・ライト/ダーク両対応
@@ -105,8 +111,9 @@ npm run build        # フロントエンドの型チェック + ビルド
 npm run tauri build  # 配布用ビルド
 ```
 
-- テストは純粋関数(coords / layout / quadrant / reminders / stats / export / redmineExport /
-  switchPlan / windowClamp / recurrence)に加え、マイグレーション SQL を **better-sqlite3** のインメモリDBで検証。
+- テストは純粋関数(coords / layout / quadrant / reminders / stats / effort / today / review /
+  export / redmineExport / switchPlan / windowClamp / recurrence)に加え、マイグレーション SQL を
+  **better-sqlite3** のインメモリDBで検証。
 - ディレクトリ構成は [design.md §2](doc/design.md) を参照。
 - アイコン変更時は差分ビルドだと再埋め込みされないことがある。`cargo clean -p quadrith
   --manifest-path src-tauri/Cargo.toml` 後に再ビルドする。

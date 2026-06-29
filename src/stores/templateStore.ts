@@ -7,7 +7,7 @@ import { addDaysStr, initialNextDue, nextOnOrAfter, planGeneration } from "../li
 import * as tagRepo from "../repositories/tagRepo";
 import * as taskRepo from "../repositories/taskRepo";
 import * as templateRepo from "../repositories/templateRepo";
-import type { RecurFreq, RecurringTemplate } from "../types/models";
+import type { EffortSize, RecurFreq, RecurringTemplate } from "../types/models";
 import { useTaskStore } from "./taskStore";
 import { useToastStore } from "./toastStore";
 
@@ -22,6 +22,7 @@ export interface TemplateInput {
   bymonthday: number | null;
   anchorDate: string; // 'YYYY-MM-DD'
   category: string | null;
+  effortSize: EffortSize | null;
   tagIds: string[];
   // 既存タスクからのひな型化時 true: anchor 当日ぶんは元タスクが担うので
   // 最初の生成は anchor の翌日以降の発生日からにする(当日の重複生成を防ぐ)。
@@ -81,6 +82,7 @@ export const useTemplateStore = create<TemplateState>()((set, get) => ({
       createdAt: now,
       updatedAt: now,
       category: input.category,
+      effortSize: input.effortSize,
       tagIds: input.tagIds,
     };
     const nextDue = input.skipAnchorOccurrence
@@ -124,6 +126,7 @@ export const useTemplateStore = create<TemplateState>()((set, get) => ({
       bymonthday: input.bymonthday,
       anchorDate: input.anchorDate,
       category: input.category,
+      effortSize: input.effortSize,
       tagIds: input.tagIds,
       updatedAt: new Date().toISOString(),
     };
@@ -191,6 +194,7 @@ export const useTemplateStore = create<TemplateState>()((set, get) => ({
             dueDate: plan.dueDate,
             templateId: t.id,
             category: t.category,
+            effortSize: t.effortSize,
           });
           if (res.ok) {
             let task = res.value;

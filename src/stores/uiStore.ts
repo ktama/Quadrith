@@ -2,7 +2,7 @@ import { create } from "zustand";
 import { toggleSelected } from "../lib/selection";
 import { STATUSES, type Status } from "../types/models";
 
-export type View = "matrix" | "kanban" | "recurring" | "archive" | "stats" | "settings";
+export type View = "today" | "matrix" | "kanban" | "recurring" | "archive" | "stats" | "settings";
 
 export interface DragState {
   id: string;
@@ -24,6 +24,7 @@ interface UiState {
   openClusterId: string | null; // 展開中の「+N」吹き出し
   contextMenu: { taskId: string; x: number; y: number } | null; // カード右クリックメニュー
   paletteOpen: boolean; // コマンドパレット(Ctrl+K)
+  reviewOpen: boolean; // 週次レビュー・ウィザード(オーバーレイ)
   now: number; // アーカイブ判定の再評価用(1分ごとに更新)
 
   setView: (view: View) => void;
@@ -37,6 +38,7 @@ interface UiState {
   openContextMenu: (taskId: string, x: number, y: number) => void;
   closeContextMenu: () => void;
   setPaletteOpen: (open: boolean) => void;
+  setReviewOpen: (open: boolean) => void;
   startDrag: (id: string, offsetX: number, offsetY: number, x: number, y: number) => void;
   updateDrag: (x: number, y: number) => void;
   endDrag: () => void;
@@ -53,6 +55,7 @@ export const useUiStore = create<UiState>()((set) => ({
   openClusterId: null,
   contextMenu: null,
   paletteOpen: false,
+  reviewOpen: false,
   now: Date.now(),
 
   setView: (view) => set({ view, openClusterId: null, contextMenu: null }),
@@ -86,6 +89,8 @@ export const useUiStore = create<UiState>()((set) => ({
   closeContextMenu: () => set({ contextMenu: null }),
 
   setPaletteOpen: (open) => set({ paletteOpen: open }),
+
+  setReviewOpen: (open) => set({ reviewOpen: open }),
 
   startDrag: (id, offsetX, offsetY, x, y) => set({ dragging: { id, offsetX, offsetY, x, y } }),
 

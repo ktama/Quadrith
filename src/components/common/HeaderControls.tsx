@@ -5,6 +5,7 @@ import { useUiStore, type View } from "../../stores/uiStore";
 import { readableTextColor } from "../../lib/tagColors";
 
 const VIEWS: { key: View; label: string }[] = [
+  { key: "today", label: "Today" },
   { key: "matrix", label: "マトリクス" },
   { key: "kanban", label: "カンバン" },
   { key: "recurring", label: "繰り返し" },

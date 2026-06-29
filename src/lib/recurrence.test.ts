@@ -19,6 +19,7 @@ function tpl(p: Partial<RecurringTemplate>): RecurringTemplate {
     createdAt: "2026-06-01T00:00:00.000Z",
     updatedAt: "2026-06-01T00:00:00.000Z",
     category: null,
+    effortSize: null,
     tagIds: [],
     ...p,
   };

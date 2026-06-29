@@ -24,6 +24,7 @@ const templates: RecurringTemplate[] = [
     createdAt: "2026-06-01T00:00:00.000Z",
     updatedAt: "2026-06-01T00:00:00.000Z",
     category: null,
+    effortSize: null,
     tagIds: ["tag-1"],
   },
 ];
@@ -45,6 +46,9 @@ function task(p: Partial<Task>): Task {
     deletedAt: null,
     templateId: null,
     category: null,
+    effortSize: null,
+    todayDate: null,
+    todayOrder: null,
     tagIds: ["tag-1", "tag-2"],
     ...p,
   };

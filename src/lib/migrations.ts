@@ -109,6 +109,29 @@ const MIGRATIONS: Migration[] = [
       `ALTER TABLE recurring_templates ADD COLUMN category TEXT`,
     ],
   },
+  {
+    version: 5,
+    description: "add effort size (T-shirt estimate)",
+    statements: [
+      // 工数の概算(Tシャツサイズ)。NULL=未見積り(仕様 §4.10)
+      `ALTER TABLE tasks ADD COLUMN effort_size TEXT
+         CHECK (effort_size IS NULL OR effort_size IN ('S','M','L','XL'))`,
+      // ひな型にも持たせ、生成される実体へ継承する
+      `ALTER TABLE recurring_templates ADD COLUMN effort_size TEXT
+         CHECK (effort_size IS NULL OR effort_size IN ('S','M','L','XL'))`,
+    ],
+  },
+  {
+    version: 6,
+    description: "add today planning (focus view)",
+    statements: [
+      // 「今日やる」の予定日(NULL=未指定)。未完了は当日へ繰り越す(仕様 §4.9)
+      `ALTER TABLE tasks ADD COLUMN today_date TEXT`,
+      // グループB(選択)の手動並び。NULL=未指定
+      `ALTER TABLE tasks ADD COLUMN today_order INTEGER`,
+      `CREATE INDEX IF NOT EXISTS idx_tasks_today ON tasks(today_date) WHERE deleted_at IS NULL`,
+    ],
+  },
 ];
 
 export const MIGRATIONS_FOR_TEST = MIGRATIONS;

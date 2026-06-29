@@ -5,9 +5,13 @@ import { getDb } from "../lib/db";
 import { err, ok, type Result } from "../lib/result";
 import {
   DEFAULT_APP_SETTINGS,
+  DEFAULT_EFFORT_MINUTES,
   DEFAULT_REDMINE_MAPPING,
+  DEFAULT_WEEKLY_REVIEW,
   type AppSettings,
+  type EffortSize,
   type RedmineMapping,
+  type WeeklyReviewSetting,
 } from "../types/models";
 
 export async function loadAppSettings(): Promise<Result<AppSettings>> {
@@ -38,6 +42,14 @@ export async function loadAppSettings(): Promise<Result<AppSettings>> {
         ...storedRedmine,
         statusMap: { ...DEFAULT_REDMINE_MAPPING.statusMap, ...storedRedmine?.statusMap },
         priorityMap: { ...DEFAULT_REDMINE_MAPPING.priorityMap, ...storedRedmine?.priorityMap },
+      },
+      effortMinutes: {
+        ...DEFAULT_EFFORT_MINUTES,
+        ...(stored.effortMinutes as Partial<Record<EffortSize, number>> | undefined),
+      },
+      weeklyReview: {
+        ...DEFAULT_WEEKLY_REVIEW,
+        ...(stored.weeklyReview as Partial<WeeklyReviewSetting> | undefined),
       },
     };
     return ok(merged);

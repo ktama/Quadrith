@@ -1,6 +1,6 @@
 [package]
 name = "quadrith"
-version = "0.4.0"
+version = "0.5.0"
 description = "重要度・緊急度・状態の3軸タスク管理アプリ"
 authors = ["ktama"]
 license = "MIT"

@@ -40,6 +40,8 @@ const CSV_HEADERS = [
   "deleted_at",
   "template_id",
   "category",
+  "effort_size",
+  "today_date",
   "tags",
 ];
 
@@ -69,6 +71,8 @@ export function buildCsv(bundle: ExportBundle): string {
       t.deletedAt ?? "",
       t.templateId ?? "",
       t.category ?? "",
+      t.effortSize ?? "",
+      t.todayDate ?? "",
       tags,
     ];
     lines.push(cells.map(csvEscape).join(","));

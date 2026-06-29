@@ -8,10 +8,20 @@ import { exportData, exportRedmineCsv, type ExportFormat } from "../../lib/expor
 import { todayLocal } from "../../lib/notifications";
 import { QUADRANT_GRID_ORDER, QUADRANT_LABELS, type Quadrant } from "../../lib/quadrant";
 import { addDaysStr } from "../../lib/recurrence";
-import { completionStats } from "../../lib/stats";
+import {
+  completionStats,
+  createdVsCompletedByWeek,
+  oldestTodos,
+  planAdherenceByWeek,
+  q2LeadTimeMedianDays,
+  q2StaleTop,
+  throughputByWeek,
+  unestimatedRatio,
+} from "../../lib/stats";
 import { useSettingsStore } from "../../stores/settingsStore";
 import { useTaskStore } from "../../stores/taskStore";
 import { useToastStore } from "../../stores/toastStore";
+import { useUiStore } from "../../stores/uiStore";
 
 const QUADRANT_TONE: Record<Quadrant, string> = {
   q1: "bg-red-50 border-red-200 dark:bg-red-900/20 dark:border-red-900",
@@ -32,7 +42,9 @@ function pct(ratio: number): string {
 
 export function StatsView() {
   const tasks = useTaskStore((s) => s.tasks);
-  const redmineMapping = useSettingsStore((s) => s.settings.redmineExport);
+  const settings = useSettingsStore((s) => s.settings);
+  const redmineMapping = settings.redmineExport;
+  const setReviewOpen = useUiStore((s) => s.setReviewOpen);
   const show = useToastStore((s) => s.show);
   const [exporting, setExporting] = useState<ExportFormat | null>(null);
   const [redmineFrom, setRedmineFrom] = useState(todayLocal());
@@ -40,6 +52,21 @@ export function StatsView() {
   const [redmineBusy, setRedmineBusy] = useState(false);
 
   const stats = useMemo(() => completionStats(tasks), [tasks]);
+  // 深掘り指標(仕様 §4.11)。週起点・工数換算は設定に追従する。
+  const deep = useMemo(() => {
+    const throughput = throughputByWeek(tasks, settings.effortMinutes, settings.weekStart).slice(-6);
+    const created = createdVsCompletedByWeek(tasks, settings.weekStart).slice(-6);
+    const adherence = planAdherenceByWeek(tasks, settings.weekStart).slice(-6);
+    return {
+      throughput,
+      created,
+      adherence,
+      leadTime: q2LeadTimeMedianDays(tasks),
+      unestimated: unestimatedRatio(tasks),
+      oldest: oldestTodos(tasks, 5),
+      stale: q2StaleTop(tasks, Date.now(), 5),
+    };
+  }, [tasks, settings.effortMinutes, settings.weekStart]);
   const byQ = useMemo(
     () => Object.fromEntries(stats.stats.map((s) => [s.quadrant, s])) as Record<
       Quadrant,
@@ -84,6 +111,12 @@ export function StatsView() {
             完了タスクの象限分布
           </h2>
           <div className="flex gap-2">
+            <button
+              className="text-xs px-3 py-1.5 rounded bg-indigo-500 hover:bg-indigo-600 text-white font-medium"
+              onClick={() => setReviewOpen(true)}
+            >
+              週次レビュー
+            </button>
             {(["json", "csv"] as const).map((fmt) => (
               <button
                 key={fmt}
@@ -195,8 +228,110 @@ export function StatsView() {
           </>
         )}
 
+        {/* 深掘り指標(仕様 §4.11) */}
+        <div className="flex flex-col gap-4">
+          <h2 className="text-lg font-bold text-slate-700 dark:text-slate-100">指標の深掘り</h2>
+
+          <div className="grid grid-cols-3 gap-3">
+            <div className="rounded-lg border border-slate-200 dark:border-slate-700 p-3">
+              <div className="text-xs text-slate-400">第2領域リードタイム(中央値)</div>
+              <div className="text-2xl font-bold text-slate-700 dark:text-slate-100">
+                {deep.leadTime === null ? "—" : `${deep.leadTime}日`}
+              </div>
+            </div>
+            <div className="rounded-lg border border-slate-200 dark:border-slate-700 p-3">
+              <div className="text-xs text-slate-400">未見積り率</div>
+              <div className="text-2xl font-bold text-slate-700 dark:text-slate-100">
+                {pct(deep.unestimated.ratio)}
+              </div>
+              <div className="text-[11px] text-slate-400">
+                {deep.unestimated.unestimated}/{deep.unestimated.total} 件
+              </div>
+            </div>
+            <div className="rounded-lg border border-slate-200 dark:border-slate-700 p-3">
+              <div className="text-xs text-slate-400">計画遵守率(直近週)</div>
+              <div className="text-2xl font-bold text-slate-700 dark:text-slate-100">
+                {deep.adherence.length ? pct(deep.adherence[deep.adherence.length - 1].ratio) : "—"}
+              </div>
+            </div>
+          </div>
+
+          {/* 完了スループット + 作成 vs 完了(週次) */}
+          <div className="rounded-lg border border-slate-200 dark:border-slate-700 p-4">
+            <div className="text-sm font-semibold text-slate-600 dark:text-slate-200 mb-2">
+              週次の流量(完了スループット / 作成 vs 完了)
+            </div>
+            {deep.throughput.length === 0 && deep.created.length === 0 ? (
+              <p className="text-xs text-slate-400">まだデータがありません。</p>
+            ) : (
+              <table className="w-full text-xs text-slate-600 dark:text-slate-300">
+                <thead>
+                  <tr className="text-slate-400">
+                    <th className="text-left font-normal py-1">週(起点)</th>
+                    <th className="text-right font-normal">完了</th>
+                    <th className="text-right font-normal">分</th>
+                    <th className="text-right font-normal">作成</th>
+                    <th className="text-right font-normal">差</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {deep.created.map((c) => {
+                    const tp = deep.throughput.find((t) => t.week === c.week);
+                    return (
+                      <tr key={c.week} className="border-t border-slate-100 dark:border-slate-800">
+                        <td className="py-1">{c.week}</td>
+                        <td className="text-right">{c.completed}</td>
+                        <td className="text-right">{tp?.minutes ?? 0}</td>
+                        <td className="text-right">{c.created}</td>
+                        <td className={`text-right ${c.diff > 0 ? "text-red-500" : "text-emerald-500"}`}>
+                          {c.diff > 0 ? `+${c.diff}` : c.diff}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            )}
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            {/* 最古の未着手 */}
+            <div className="rounded-lg border border-slate-200 dark:border-slate-700 p-4">
+              <div className="text-sm font-semibold text-slate-600 dark:text-slate-200 mb-2">最古の未着手</div>
+              {deep.oldest.length === 0 ? (
+                <p className="text-xs text-slate-400">未着手タスクはありません。</p>
+              ) : (
+                <ul className="space-y-1 text-xs text-slate-600 dark:text-slate-300">
+                  {deep.oldest.map((t) => (
+                    <li key={t.id} className="flex justify-between gap-2">
+                      <span className="truncate">{t.title}</span>
+                      <span className="text-slate-400 shrink-0">{t.createdAt.slice(0, 10)}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+            {/* 第2領域の放置 */}
+            <div className="rounded-lg border border-slate-200 dark:border-slate-700 p-4">
+              <div className="text-sm font-semibold text-slate-600 dark:text-slate-200 mb-2">第2領域の放置</div>
+              {deep.stale.length === 0 ? (
+                <p className="text-xs text-slate-400">放置中の第2領域はありません。</p>
+              ) : (
+                <ul className="space-y-1 text-xs text-slate-600 dark:text-slate-300">
+                  {deep.stale.map((s) => (
+                    <li key={s.task.id} className="flex justify-between gap-2">
+                      <span className="truncate">{s.task.title}</span>
+                      <span className="text-slate-400 shrink-0">{s.days}日</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          </div>
+        </div>
+
         <p className="text-xs text-slate-400">
-          ※ インボックス(座標なし)のまま完了したタスクは集計対象外です。エクスポートは論理削除分も含む全タスクが対象です。
+          ※ インボックス(座標なし)のまま完了したタスクは象限分布の集計対象外です。エクスポートは論理削除分も含む全タスクが対象です。
         </p>
       </div>
     </div>

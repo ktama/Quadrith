@@ -38,6 +38,8 @@ export function TaskCardBody({
   const translucent = task.status === "pending" || task.status === "waiting";
   const badge = task.dueDate ? dueBadge(task.dueDate) : null;
   const cardTags = tags.filter((t) => task.tagIds.includes(t.id));
+  // 工数バッジ(仕様 §4.10): サイズのみ表示。カードの大きさは変えない
+  const effort = task.effortSize;
 
   return (
     <div
@@ -74,6 +76,14 @@ export function TaskCardBody({
             style={{ background: t.color }}
           />
         ))}
+        {effort && (
+          <span
+            title={`工数: ${effort}`}
+            className="text-[10px] leading-none px-1 py-0.5 rounded shrink-0 font-semibold bg-indigo-50 text-indigo-600 dark:bg-indigo-900/40 dark:text-indigo-300"
+          >
+            {effort}
+          </span>
+        )}
         {badge && (
           <span className={`ml-auto text-[10px] px-1 rounded ${badge.className}`}>
             {badge.label}

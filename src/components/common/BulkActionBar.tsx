@@ -6,7 +6,7 @@ import { useSettingsStore } from "../../stores/settingsStore";
 import { useTagStore } from "../../stores/tagStore";
 import { useTaskStore } from "../../stores/taskStore";
 import { useUiStore } from "../../stores/uiStore";
-import { STATUSES, STATUS_LABELS, type Status } from "../../types/models";
+import { EFFORT_SIZES, STATUSES, STATUS_LABELS, type EffortSize, type Status } from "../../types/models";
 
 export function BulkActionBar() {
   const selectedIds = useUiStore((s) => s.selectedIds);
@@ -17,6 +17,8 @@ export function BulkActionBar() {
   const tasks = useTaskStore((s) => s.tasks);
   const setStatus = useTaskStore((s) => s.setStatus);
   const setTags = useTaskStore((s) => s.setTags);
+  const setEffort = useTaskStore((s) => s.setEffort);
+  const setToday = useTaskStore((s) => s.setToday);
   const moveTo = useTaskStore((s) => s.moveTo);
   const removeMany = useTaskStore((s) => s.removeMany);
 
@@ -35,6 +37,8 @@ export function BulkActionBar() {
     selected.forEach((t) => {
       if (t.tagIds.includes(tagId)) void setTags(t.id, t.tagIds.filter((id) => id !== tagId));
     });
+  const applyEffort = (size: EffortSize | null) => void setEffort(selectedIds, size);
+  const applyToday = (on: boolean) => void setToday(selectedIds, on);
   const toInbox = () => selected.forEach((t) => void moveTo(t.id, null, null));
   const removeAll = () => void removeMany(selectedIds);
 
@@ -72,6 +76,47 @@ export function BulkActionBar() {
                 {STATUS_LABELS[st]}
               </button>
             ))}
+          </div>
+        </div>
+
+        {/* 工数 */}
+        <div>
+          <div className="text-[11px] font-bold text-slate-400 mb-1.5">工数</div>
+          <div className="flex flex-wrap gap-1.5">
+            {EFFORT_SIZES.map((sz) => (
+              <button
+                key={sz}
+                className="text-xs px-2.5 py-1 rounded-full border border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 font-semibold"
+                onClick={() => applyEffort(sz)}
+              >
+                {sz}
+              </button>
+            ))}
+            <button
+              className="text-xs px-2.5 py-1 rounded-full border border-slate-300 dark:border-slate-600 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700"
+              onClick={() => applyEffort(null)}
+            >
+              未見積り
+            </button>
+          </div>
+        </div>
+
+        {/* 今日やる */}
+        <div>
+          <div className="text-[11px] font-bold text-slate-400 mb-1.5">今日やる</div>
+          <div className="flex gap-1.5">
+            <button
+              className="flex-1 text-xs px-2 py-1 rounded border border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700"
+              onClick={() => applyToday(true)}
+            >
+              ＋ 追加
+            </button>
+            <button
+              className="flex-1 text-xs px-2 py-1 rounded border border-slate-300 dark:border-slate-600 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700"
+              onClick={() => applyToday(false)}
+            >
+              解除
+            </button>
           </div>
         </div>
 

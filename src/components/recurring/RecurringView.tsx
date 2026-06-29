@@ -12,7 +12,7 @@ import {
 import { useSettingsStore } from "../../stores/settingsStore";
 import { useTagStore } from "../../stores/tagStore";
 import { useTemplateStore, type TemplateInput } from "../../stores/templateStore";
-import type { RecurringTemplate } from "../../types/models";
+import { EFFORT_SIZES, type EffortSize, type RecurringTemplate } from "../../types/models";
 import { readableTextColor } from "../../lib/tagColors";
 
 interface Draft {
@@ -23,6 +23,7 @@ interface Draft {
   urgency: number | null;
   rule: RecurrenceRule;
   category: string | null;
+  effortSize: EffortSize | null;
   tagIds: string[];
 }
 
@@ -35,6 +36,7 @@ function newDraft(): Draft {
     urgency: null,
     rule: defaultRule(),
     category: null,
+    effortSize: null,
     tagIds: [],
   };
 }
@@ -54,6 +56,7 @@ function draftFrom(t: RecurringTemplate): Draft {
       anchorDate: t.anchorDate,
     },
     category: t.category,
+    effortSize: t.effortSize,
     tagIds: t.tagIds,
   };
 }
@@ -84,6 +87,7 @@ export function RecurringView() {
       bymonthday: draft.rule.bymonthday,
       anchorDate: draft.rule.anchorDate,
       category: draft.category,
+      effortSize: draft.effortSize,
       tagIds: draft.tagIds,
     };
     if (draft.id) void updateTemplate(draft.id, input);
@@ -214,6 +218,37 @@ export function RecurringView() {
                 ))}
               </select>
             )}
+
+            <div className="flex items-center gap-1.5">
+              <span className="text-xs text-slate-500 dark:text-slate-400">工数:</span>
+              <div className="flex gap-1">
+                <button
+                  type="button"
+                  className={`text-xs px-2 py-0.5 rounded border transition-colors ${
+                    draft.effortSize === null
+                      ? "bg-indigo-500 text-white border-transparent"
+                      : "text-slate-600 dark:text-slate-200 border-slate-300 dark:border-slate-600"
+                  }`}
+                  onClick={() => setDraft({ ...draft, effortSize: null })}
+                >
+                  なし
+                </button>
+                {EFFORT_SIZES.map((sz) => (
+                  <button
+                    key={sz}
+                    type="button"
+                    className={`text-xs px-2 py-0.5 rounded border transition-colors ${
+                      draft.effortSize === sz
+                        ? "bg-indigo-500 text-white border-transparent"
+                        : "text-slate-600 dark:text-slate-200 border-slate-300 dark:border-slate-600"
+                    }`}
+                    onClick={() => setDraft({ ...draft, effortSize: sz })}
+                  >
+                    {sz}
+                  </button>
+                ))}
+              </div>
+            </div>
 
             {tags.length > 0 && (
               <div className="flex flex-wrap gap-1.5">

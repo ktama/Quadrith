@@ -4,7 +4,7 @@
 
 import { getDb } from "../lib/db";
 import { err, ok, type Result } from "../lib/result";
-import type { RecurFreq, RecurringTemplate } from "../types/models";
+import type { EffortSize, RecurFreq, RecurringTemplate } from "../types/models";
 
 interface TemplateRow {
   id: string;
@@ -22,6 +22,7 @@ interface TemplateRow {
   created_at: string;
   updated_at: string;
   category: string | null;
+  effort_size: EffortSize | null;
   tag_ids: string | null;
 }
 
@@ -49,6 +50,7 @@ function rowToTemplate(r: TemplateRow): RecurringTemplate {
     createdAt: r.created_at,
     updatedAt: r.updated_at,
     category: r.category,
+    effortSize: r.effort_size,
     tagIds: r.tag_ids ? r.tag_ids.split(",") : [],
   };
 }
@@ -69,8 +71,8 @@ export async function create(t: RecurringTemplate): Promise<Result<void>> {
     await db.execute(
       `INSERT INTO recurring_templates
          (id, title, memo, importance, urgency, freq, interval, byweekday, bymonthday,
-          anchor_date, next_due, active, created_at, updated_at, category)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          anchor_date, next_due, active, created_at, updated_at, category, effort_size)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         t.id,
         t.title,
@@ -87,6 +89,7 @@ export async function create(t: RecurringTemplate): Promise<Result<void>> {
         t.createdAt,
         t.updatedAt,
         t.category,
+        t.effortSize,
       ],
     );
     return ok(undefined);
@@ -102,7 +105,8 @@ export async function update(t: RecurringTemplate): Promise<Result<void>> {
     await db.execute(
       `UPDATE recurring_templates SET
          title = ?, memo = ?, importance = ?, urgency = ?, freq = ?, interval = ?,
-         byweekday = ?, bymonthday = ?, anchor_date = ?, next_due = ?, active = ?, updated_at = ?, category = ?
+         byweekday = ?, bymonthday = ?, anchor_date = ?, next_due = ?, active = ?, updated_at = ?,
+         category = ?, effort_size = ?
        WHERE id = ?`,
       [
         t.title,
@@ -118,6 +122,7 @@ export async function update(t: RecurringTemplate): Promise<Result<void>> {
         t.active ? 1 : 0,
         t.updatedAt,
         t.category,
+        t.effortSize,
         t.id,
       ],
     );

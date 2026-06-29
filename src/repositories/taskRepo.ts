@@ -3,7 +3,7 @@
 
 import { getDb } from "../lib/db";
 import { err, ok, type Result } from "../lib/result";
-import type { Status, Task } from "../types/models";
+import type { EffortSize, Status, Task } from "../types/models";
 
 interface TaskRow {
   id: string;
@@ -21,6 +21,9 @@ interface TaskRow {
   deleted_at: string | null;
   template_id: string | null;
   category: string | null;
+  effort_size: EffortSize | null;
+  today_date: string | null;
+  today_order: number | null;
   tag_ids: string | null;
 }
 
@@ -46,6 +49,9 @@ function rowToTask(r: TaskRow): Task {
     deletedAt: r.deleted_at,
     templateId: r.template_id,
     category: r.category,
+    effortSize: r.effort_size,
+    todayDate: r.today_date,
+    todayOrder: r.today_order,
     tagIds: r.tag_ids ? r.tag_ids.split(",") : [],
   };
 }
@@ -59,6 +65,7 @@ export interface CreateTaskInput {
   dueDate?: string | null;
   templateId?: string | null; // 繰り返しひな型からの生成時に設定
   category?: string | null;
+  effortSize?: EffortSize | null; // ひな型からの生成時に継承
 }
 
 export type TaskPatch = Partial<
@@ -74,6 +81,9 @@ export type TaskPatch = Partial<
     | "completedAt"
     | "lastProgressAt"
     | "category"
+    | "effortSize"
+    | "todayDate"
+    | "todayOrder"
   >
 >;
 
@@ -88,6 +98,9 @@ const COLUMN_MAP = {
   completedAt: "completed_at",
   lastProgressAt: "last_progress_at",
   category: "category",
+  effortSize: "effort_size",
+  todayDate: "today_date",
+  todayOrder: "today_order",
 } as const;
 
 // 論理削除されていない全タスク(アーカイブ済み含む)。
@@ -135,13 +148,17 @@ export async function create(input: CreateTaskInput): Promise<Result<Task>> {
       deletedAt: null,
       templateId: input.templateId ?? null,
       category: input.category ?? null,
+      effortSize: input.effortSize ?? null,
+      todayDate: null,
+      todayOrder: null,
       tagIds: [],
     };
     await db.execute(
       `INSERT INTO tasks
          (id, title, memo, importance, urgency, status,
-          due_date, review_at, created_at, updated_at, last_progress_at, completed_at, deleted_at, template_id, category)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, NULL, ?, ?)`,
+          due_date, review_at, created_at, updated_at, last_progress_at, completed_at, deleted_at,
+          template_id, category, effort_size, today_date, today_order)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, NULL, ?, ?, ?, NULL, NULL)`,
       [
         task.id,
         task.title,
@@ -156,6 +173,7 @@ export async function create(input: CreateTaskInput): Promise<Result<Task>> {
         task.lastProgressAt,
         task.templateId,
         task.category,
+        task.effortSize,
       ],
     );
     return ok(task);

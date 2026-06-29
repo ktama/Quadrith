@@ -1,6 +1,6 @@
-# 3軸タスク管理アプリ 設計書(v2.1 / as-built)
+# 3軸タスク管理アプリ 設計書(v2.2 / as-built)
 
-対応仕様書: 仕様書 v1.3
+対応仕様書: 仕様書 v1.4
 このドキュメントは**現在の実装に同期**している。v1.0 からの設計判断の変更点は各節の「実装メモ」に記す。
 
 ## 1. アーキテクチャ概要
@@ -67,7 +67,7 @@ src/                              # フロントエンド
 ├── App.tsx                       # 起動シーケンス・ビュー切替・カスタムタイトルバー
 ├── index.css                     # デザイントークン(@theme)・Markdown/スクロールバー
 ├── types/
-│   └── models.ts                 # Task, Tag, Status, AppSettings, BootstrapSettings, WindowState
+│   └── models.ts                 # Task, Tag, Status, EffortSize, AppSettings, WeeklyReviewSetting, BootstrapSettings, WindowState
 ├── lib/
 │   ├── db.ts                     # DB接続マネージャ(load/close/切替/存在チェック/復元)
 │   ├── migrations.ts             # スキーママイグレーション(user_version, TS実行)
@@ -79,16 +79,23 @@ src/                              # フロントエンド
 │   ├── archive.ts                # アーカイブ判定(表示時計算)
 │   ├── taskFilters.ts            # 状態/タグ/検索の共通フィルタ
 │   ├── reminders.ts              # 期限/再確認日/放置(Q2)リマインドの統合
-│   ├── stats.ts                  # 完了タスクの象限分布統計
+│   ├── stats.ts                  # 象限分布統計 + 深掘り指標(週次スループット/遵守率など, §12)
+│   ├── effort.ts                 # 工数(Tシャツサイズ)↔分の換算(純粋関数, §12)
+│   ├── today.ts                  # Today のグループ分け/並び/繰り越し/容量集計(純粋関数, §12)
+│   ├── review.ts                 # 週次レビューの各ステップ抽出/リマインド要否(純粋関数, §12)
 │   ├── recurrence.ts             # 定期タスク: 次回発生日の計算・生成判定(純粋関数)
 │   ├── export.ts                 # JSON/CSV 整形(純粋関数)
 │   ├── exportFile.ts             # 保存ダイアログ + 書込
+│   ├── redmineExport.ts          # Redmine 取込用 CSV の対象選定 + 整形(純粋関数, §11)
 │   ├── notifications.ts          # 通知予定を Rust スケジューラへ登録
 │   ├── desktop.ts                # ホットキー再登録 / 閉じる→トレイ / autostart / reveal
 │   ├── theme.ts                  # テーマ適用(html.dark + color-scheme + system監視)
+│   ├── tagColors.ts              # タグ色のコントラスト判定・既定色(純粋関数)
 │   ├── windowState.ts            # ウィンドウ位置・サイズの保存/復元
 │   ├── windowClamp.ts            # 復元位置をモニタ内にクランプ(純粋関数)
 │   ├── switchPlan.ts             # DBパス切替モード→ファイル操作の決定(純粋関数)
+│   ├── commandPalette.ts         # コマンドパレットの絞り込み/並べ替え(純粋関数)
+│   ├── selection.ts              # 複数選択集合のトグル(純粋関数)
 │   ├── result.ts                 # Result<T, AppError>
 │   └── dragTargets.ts            # ドロップ先(マトリクス/インボックス)のDOM登録
 ├── repositories/
@@ -108,12 +115,14 @@ src/                              # フロントエンド
 │   ├── panel/{DetailPanel, MemoField}.tsx     # MemoField は Markdown 編集/プレビュー
 │   ├── kanban/KanbanView.tsx
 │   ├── recurring/{RecurringView, RecurrenceForm}.tsx  # ひな型一覧・新規/編集モーダル・頻度フォーム
+│   ├── today/TodayView.tsx                       # Today(2グループ + 容量メーター, §12)
+│   ├── review/ReviewWizard.tsx                   # 週次レビュー(6ステップ)+ ReviewBanner(§12)
 │   ├── archive/ArchiveView.tsx
 │   ├── stats/StatsView.tsx
 │   ├── settings/{SettingsView, TagManager}.tsx
 │   ├── QuickAddPopup.tsx                        # quickadd ウィンドウ(DBに触れない)
-│   └── common/{Toast, FilterChips, HeaderControls, Reminders,
-│               StartupDialogs, CardContextMenu, WindowControls, ResizeHandles}.tsx
+│   └── common/{Toast, FilterChips, HeaderControls, Reminders, CommandPalette, BulkActionBar,
+│               ColorPicker, StartupDialogs, CardContextMenu, WindowControls, ResizeHandles}.tsx
 └── hooks/
     └── useDragCard.ts            # pointer イベントによるドラッグ(undo は store 側)
 
@@ -150,6 +159,9 @@ export interface Task {
   deletedAt: string | null;
   templateId: string | null;   // 生成元の繰り返しひな型(null=通常タスク, migration v3)
   category: string | null;     // 任意カテゴリ(Redmine エクスポート用, migration v4, §4.8)
+  effortSize: EffortSize | null; // 工数(Tシャツサイズ, migration v5, §4.10/§12)。null=未見積り
+  todayDate: string | null;    // 「今日やる」予定日 'YYYY-MM-DD'(migration v6, §4.9/§12)
+  todayOrder: number | null;   // グループB(選択)の手動並び(migration v6)
   tagIds: string[];            // JOIN結果を集約して保持
 }
 
@@ -173,6 +185,7 @@ export interface RecurringTemplate {
   createdAt: string;
   updatedAt: string;
   category: string | null;     // 実体へ継承するカテゴリ(migration v4, §4.8)
+  effortSize: EffortSize | null; // 実体へ継承する工数(migration v5, §4.10/§12)
   tagIds: string[];
 }
 
@@ -198,6 +211,12 @@ export interface AppSettings {
   backupDir: string | null;         // null = DBと同じフォルダ/backups
   categories: string[];             // カテゴリ候補(§4.8)
   redmineExport: RedmineMapping;    // statusMap/priorityMap/forceNewStatus/includeStartDate/includeCategory(§4.8/§11)
+  effortMinutes: Record<EffortSize, number>; // 工数サイズ→分(§4.10/§12)。既定 15/60/180/480
+  dailyCapacityMinutes: number;     // Today 容量メーターの分母(§4.9)。既定 360
+  todayIncludeUrgentQuadrant: boolean; // Today に Q1 を自動取り込み(§4.9)。既定 true
+  weekStart: 'monday' | 'sunday';   // 統計の週起点(§4.11)。既定 'monday'
+  weeklyReview: WeeklyReviewSetting; // 毎週リマインド(enabled/weekday/time, §4.11)。既定オフ
+  lastReviewAt: string | null;      // 前回レビュー日時 ISO(記録のみ, §4.11)
 }
 ```
 
@@ -395,6 +414,10 @@ const MIGRATIONS = [
       `ALTER TABLE tasks ADD COLUMN category TEXT`,
       `ALTER TABLE recurring_templates ADD COLUMN category TEXT`,
   ]},
+  // v5: 工数(Tシャツサイズ)。tasks/recurring_templates に effort_size を追加(§4.10 / §12)
+  { version: 5, description: 'add effort size', statements: [/* effort_size + CHECK */] },
+  // v6: Today(今日やる)。tasks.today_date / today_order + index を追加(§4.9 / §12)
+  { version: 6, description: 'add today planning', statements: [/* today_date, today_order, idx */] },
 ];
 // applyMigrations: PRAGMA user_version を読み、未適用分のみ順次 execute → user_version 更新
 ```
@@ -417,10 +440,12 @@ const MIGRATIONS = [
 
 ## 8. テスト方針([*.test.ts](../src/lib/), vitest)
 
-- **純粋関数の単体**(53テスト): coords / layout(決定性・クラスタ) / quadrant / reminders /
-  stats / export(CSV整形) / switchPlan(切替モードの分岐) / windowClamp(モニタ外復元)。
+- **純粋関数の単体**(149テスト): coords / layout(決定性・クラスタ) / quadrant / reminders /
+  stats(象限分布 + 週次指標) / effort / today(グループ/繰り越し/容量) / review(抽出/リマインド) /
+  export(CSV整形) / redmineExport / recurrence / tagColors / commandPalette / selection /
+  switchPlan(切替モードの分岐) / windowClamp(モニタ外復元) / result。
 - **マイグレーションの結合**: [migrations.test.ts](../src/lib/migrations.test.ts) が **better-sqlite3**
-  のインメモリDBに MIGRATIONS を適用し、スキーマ・CHECK制約・`group_concat` タグ集約を検証。
+  のインメモリDBに MIGRATIONS を適用し、スキーマ・CHECK制約(status / effort_size)・`group_concat` タグ集約を検証。
 - **手動確認項目**: 枠なしウィンドウのドラッグ/リサイズ/スナップ、WAL を残した状態の
   パス移動、マイグレーション失敗→復元、トレイ常駐中のホットキー、通知の発火。
 - repo / store / db.switchDbPath の live 結合テストは Tauri ランタイム依存のため未整備
@@ -457,6 +482,10 @@ const MIGRATIONS = [
   (まとめて1件・未完了時は重複生成しない)/ 専用ビュー・詳細パネルの🔁モーダル・カードの🔁(§4.7 / §5.7)。
 - フェーズ5(Redmine エクスポート): 期間指定の取込用 CSV 出力(未完了 + 繰り返し展開)/ ステータス・優先度
   マッピング設定 / トラッカー名(settings.json) / カテゴリ(migration v4・タスク割当)・開始日の任意列(§4.8 / §11)。
+- フェーズ6(Today / 工数 / 週次レビュー): Today ビュー(2グループ + 理由バッジ + 容量メーター・繰り越し)/
+  工数 Tシャツサイズ(migration v5・バッジ表示・ひな型継承)/ 統計の深化(週次指標 8 種)/ 操作できる
+  週次レビュー・ウィザード(6 ステップ)+ アプリ内リマインド。migration v6(今日やる)。純粋関数は
+  effort / today / stats(追記)/ review に集約し vitest で検証(§12)。
 
 ## 11. Redmine エクスポート(実装済み)
 
@@ -551,3 +580,246 @@ taskRepo.findAll / templateRepo.findAll / tagRepo.findAll → `selectRedmineRows
 
 象限→優先度 / 状態マッピング / 期間境界(from・to の両端) / 繰り返し展開(日週月年・複数発生) /
 実体優先+発生日スキップ(二重計上しない) / 期日なし除外 / タグ補記 / CSV エスケープ / 0 件・大量。
+
+## 12. Today / 工数 / 週次レビュー(実装済み・フェーズ6)
+
+仕様 §4.9〜4.11 の設計。3機能は軽く連動する(Today の容量が工数に依存し、週次レビューが
+Today・工数・統計を束ねる)。**設計方針は既存どおり**: ロジックは純粋関数に切り出して vitest で検証し
+(§1 / §8 / CLAUDE.md)、Rust は不使用、書込は楽観更新(§4.4)。下記は実装に同期している。
+
+### 12.1 モジュール構成(追加)
+
+```
+src/lib/effort.ts               # EffortSize↔分の換算(純粋関数, 新規)
+src/lib/today.ts                # Today のグループ分け・並び・繰り越し・容量集計(純粋関数, 新規)
+src/lib/stats.ts                # 追加指標(スループット/作成vs完了/リードタイム/遵守率…)を追記
+src/lib/review.ts              # 週次レビューの各ステップ対象抽出・リマインド要否(純粋関数, 新規)
+src/components/today/TodayView.tsx          # Today ビュー(2グループ + 容量メーター, 新規)
+src/components/review/ReviewWizard.tsx      # 操作できる週次レビュー・オーバーレイ(新規)
+src/components/stats/StatsView.tsx          # 追加指標の可視化(既存に追記)
+src/components/panel/DetailPanel.tsx        # 工数 S/M/L/XL セレクト(既存に追記)
+src/components/recurring/RecurrenceForm.tsx # ひな型の工数(既存に追記)
+src/components/matrix/TaskCard.tsx          # 工数バッジ(既存に追記)
+src/stores/taskStore.ts                     # today_date/today_order/effort_size 操作 + 繰り越し(追記)
+src/stores/uiStore.ts                       # View に "today" 追加 + reviewOpen(追記)
+src/stores/settingsStore.ts                 # lastReviewAt の保存(追記)
+src/types/models.ts                         # EffortSize / AppSettings 追加キー(追記)
+src/lib/migrations.ts                       # v5(effort_size)/ v6(today_date,today_order)(追記)
+```
+
+### 12.2 型定義の追加([models.ts](../src/types/models.ts))
+
+```typescript
+export type EffortSize = "S" | "M" | "L" | "XL";
+export const EFFORT_SIZES: EffortSize[] = ["S", "M", "L", "XL"];
+
+export interface Task {
+  // …既存…
+  effortSize: EffortSize | null;   // null = 未見積り(migration v5)
+  todayDate: string | null;        // 'YYYY-MM-DD' 「今日やる」予定日。null = 未指定(migration v6)
+  todayOrder: number | null;       // グループB の手動並び。null = 未指定(migration v6)
+}
+
+export interface RecurringTemplate {
+  // …既存…
+  effortSize: EffortSize | null;   // 実体へ継承(migration v5)
+}
+
+export type WeekStart = "monday" | "sunday";
+export interface WeeklyReviewSetting {
+  enabled: boolean;                // 既定 false
+  weekday: number;                 // ISO 1=月〜7=日。既定 1(月)
+  time: string;                    // 'HH:mm'。既定 '09:00'
+}
+
+export interface AppSettings {
+  // …既存…
+  effortMinutes: Record<EffortSize, number>;  // 既定 { S:15, M:60, L:180, XL:480 }
+  dailyCapacityMinutes: number;               // 既定 360
+  todayIncludeUrgentQuadrant: boolean;        // 既定 true(Q1 を自動グループへ)
+  weekStart: WeekStart;                        // 既定 'monday'
+  weeklyReview: WeeklyReviewSetting;           // 既定 { false, 1, '09:00' }
+  lastReviewAt: string | null;                 // 前回レビュー日時 ISO。既定 null
+}
+```
+
+- `DEFAULT_APP_SETTINGS` に上記既定値を追加。旧 DB 互換のため [settingsRepo.ts](../src/repositories/settingsRepo.ts)
+  で `effortMinutes` / `weeklyReview` のネストも `statusColors` と同様に既定値とディープマージする(§11.4 と同じ方針)。
+- `todayOrder` は手動並びの整数。並べ替え時にグループBを 0,1,2… へ振り直す(疎な採番はしない)。
+
+### 12.3 マイグレーション(v5 / v6, [migrations.ts](../src/lib/migrations.ts))
+
+```typescript
+// v5: 工数(Tシャツサイズ)。実体とひな型に effort_size を追加
+{ version: 5, description: 'add effort size', statements: [
+    `ALTER TABLE tasks ADD COLUMN effort_size TEXT
+       CHECK (effort_size IS NULL OR effort_size IN ('S','M','L','XL'))`,
+    `ALTER TABLE recurring_templates ADD COLUMN effort_size TEXT
+       CHECK (effort_size IS NULL OR effort_size IN ('S','M','L','XL'))`,
+]},
+// v6: Today(今日やる)。予定日と手動並びを追加
+{ version: 6, description: 'add today planning', statements: [
+    `ALTER TABLE tasks ADD COLUMN today_date  TEXT`,    // 'YYYY-MM-DD'。null=未指定
+    `ALTER TABLE tasks ADD COLUMN today_order INTEGER`, // グループB手動並び
+    `CREATE INDEX idx_tasks_today ON tasks(today_date) WHERE deleted_at IS NULL`,
+]},
+```
+
+- **過去のマイグレーションは書き換えない**(§6 / CLAUDE.md)。列追加に伴い `TaskRow` / `rowToTask` /
+  `CreateTaskInput`(必要なら)/ `TaskPatch` + `COLUMN_MAP`(`effort_size` / `today_date` / `today_order` を追加)/
+  `create` の INSERT / [export.ts](../src/lib/export.ts) の CSV 列 / **各テストの task ファクトリ**を更新する。
+- 工数・今日やるの書込は既存 `taskRepo.update(id, patch, updatedAt?)`(§4.2)経由。専用クエリは作らない。
+
+### 12.4 工数([effort.ts](../src/lib/effort.ts))
+
+```typescript
+export const DEFAULT_EFFORT_MINUTES: Record<EffortSize, number> = { S: 15, M: 60, L: 180, XL: 480 };
+
+// 未見積りは null(合計に算入しない)。設定 map を渡して追従させる。
+export function effortMinutes(size: EffortSize | null, map: Record<EffortSize, number>): number | null {
+  return size === null ? null : map[size];
+}
+```
+
+- 入力 UI: 詳細パネルの S/M/L/XL セグメント(+「未見積り」で null へ)→ `taskStore.patch(id, { effortSize })`。
+  複数選択は [BulkActionBar](../src/components/common/BulkActionBar.tsx) に一括設定を足す。ひな型は
+  [RecurrenceForm](../src/components/recurring/RecurrenceForm.tsx) に追加し、生成時に実体へ継承(§5.7 の
+  importance/tags/category と同じ経路)。
+- 表示: [TaskCard](../src/components/matrix/TaskCard.tsx) に工数バッジ(期限バッジの並び)。**カードサイズは不変**
+  (layout.ts は触らない)。
+
+### 12.5 Today([today.ts](../src/lib/today.ts) / TodayView)
+
+純粋関数(vitest 対象):
+
+```typescript
+export type TodayBadge = "overdue" | "due-today" | "doing" | "review" | "urgent" | "pick";
+
+export interface TodayCard { task: Task; badges: TodayBadge[]; }
+export interface TodayGroups { auto: TodayCard[]; picks: TodayCard[]; }
+
+// today: 'YYYY-MM-DD'。auto は規定順、picks は today_order 順。
+// auto に入るタスクは picks から除外し、auto 側カードに "pick" バッジを足す(二重表示しない)。
+export function todayGroups(tasks: Task[], today: string, includeUrgent: boolean): TodayGroups;
+
+// グループA の主要素ソートキー(バッジは複数でも、並びはこの優先度で決まる)
+//   overdue(期限古い順) < due-today < doing < review < urgent
+// グループB は today_order 昇順。
+
+// 未完了の「今日やる」で today_date < today のものを today へ繰り越す(order は保持)。
+// 返り値は更新が必要な差分のみ(楽観更新で patch する)。
+export function carryOverToday(tasks: Task[], today: string): { id: string; todayDate: string }[];
+
+export interface CapacitySummary {
+  estimatedMinutes: number;  // Today 表示中・未完了・見積りありの合計
+  capacityMinutes: number;   // 設定 dailyCapacityMinutes
+  remainingMinutes: number;  // capacity - estimated(負なら超過)
+  over: boolean;
+  unestimatedCount: number;  // Today 表示中・未完了・未見積りの件数
+}
+export function capacitySummary(
+  groups: TodayGroups, effortMap: Record<EffortSize, number>, capacity: number,
+): CapacitySummary;
+```
+
+判定の整合:
+- `overdue`=`dueDate < today` / `due-today`=`dueDate === today` / `doing`=`status==='doing'` /
+  `review`=`reviewAt <= today`(到来。仕様 §4.9 で「今日」から拡張、[reminders.ts](../src/lib/reminders.ts) の
+  `review` と同義だが Today では保留・待ち以外でも到来していれば出す) / `urgent`=`includeUrgent &&
+  taskQuadrant(t)==='q1'`。いずれも `deletedAt==null && status!=='done'` が前提。
+- **グループA判定は reminders と重複する**ため、`due`/`review` の素の述語を `reminders.ts` と共有できる形に
+  切り出す(両者が同じ述語を呼ぶ。閾値や日付表現を二重定義しない)。
+
+繰り越し・容量の発火点:
+- `taskStore.load()` 後と**日付変更監視**で `carryOverToday` を実行。日付変更は [App.tsx](../src/App.tsx) の
+  `setInterval`(§5.4 / §5.7、`lastDate !== today` 分岐)に相乗りし、既存の `generateDue` と並べて呼ぶ。
+- TodayView は `todayGroups` を `useMemo`(依存=tasks/today/設定)で算出。容量メーターは `capacitySummary`、
+  超過時に赤(index.css のステータス色ではなくアクセント/危険色トークン)。
+- 操作は既存ストアを再利用: 状態変更・完了(undo, §5.3)・詳細表示・「今日やる」解除(`patch(id,{todayDate:null,
+  todayOrder:null})`)。グループB の並べ替えはポインタ D&D で `todayOrder` を 0..n に振り直して一括 patch。
+- コマンドパレット([CommandPalette](../src/components/common/CommandPalette.tsx))に「Today へ移動」「選択中を
+  今日やるに追加/解除」を追加(commandPalette.ts のフィルタはそのまま)。
+
+### 12.6 統計の深化([stats.ts](../src/lib/stats.ts) 追記)
+
+既存 `completionStats` は維持。週バケットの基準関数を足し、指標ごとに純粋関数を追加(すべて vitest)。
+
+```typescript
+// ローカル日付 'YYYY-MM-DD' を、週起点に揃えた週頭の 'YYYY-MM-DD' へ丸める。
+export function weekStartOf(date: string, weekStart: WeekStart): string;
+
+export interface ThroughputBucket { week: string; count: number; minutes: number; }      // 完了スループット
+export interface CreatedCompleted { week: string; created: number; completed: number; diff: number; }
+export interface BalanceBucket { week: string; ratio: Record<Quadrant, number>; }         // 象限バランス推移
+export interface AdherenceBucket { week: string; planned: number; completed: number; ratio: number; }
+
+export function throughputByWeek(tasks, effortMap, weekStart): ThroughputBucket[];
+export function createdVsCompletedByWeek(tasks, weekStart): CreatedCompleted[];
+export function q2LeadTimeMedianDays(tasks): number | null;     // 完了Q2の (completedAt-createdAt) 中央値
+export function q2StaleTop(tasks, nowMs, limit): { task: Task; days: number }[]; // 未完了Q2の放置上位
+export function oldestTodos(tasks, limit): Task[];               // 未着手を createdAt 昇順
+export function planAdherenceByWeek(tasks, weekStart): AdherenceBucket[];
+export function unestimatedRatio(tasks): { total: number; unestimated: number; ratio: number };
+```
+
+集計の前提(仕様 §4.11):
+- 対象は**有効タスク + アーカイブ済み完了タスク**。アーカイブはフラグを持たず表示時計算(§5.4)なので、
+  統計も `findAllAlive`(論理削除を除く全件)を入力に使えば足りる(`deletedAt==null` で除外済み)。
+- 日付はローカル日付化(`isoDate` 相当で先頭10文字 or ローカル変換)してから週へ丸める。
+- **計画遵守率(緩い定義)**: 各週で `planned` = `todayDate` がその週に入るタスク数、`completed` = そのうち
+  `status==='done' && localDate(completedAt) === todayDate`。繰り越しで `todayDate` は最後に計画した日へ
+  更新済みなので「最後に計画した日に完了できたか」を測れる。
+- 放置閾値は `STALE_Q2_DAYS`(14, [reminders.ts](../src/lib/reminders.ts))を共用し、`q2StaleTop` のしきい表示にも使う。
+
+### 12.7 週次レビュー(ReviewWizard / [review.ts](../src/lib/review.ts))
+
+操作できるオーバーレイ。状態機械はコンポーネント側(`step` / `skipped`)、各ステップの**対象抽出**は純粋関数。
+
+```typescript
+export type ReviewStep = "summary" | "due" | "stale" | "review" | "inbox" | "plan";
+export const REVIEW_STEPS: ReviewStep[] = ["summary","due","stale","review","inbox","plan"];
+
+// 各ステップが扱うタスク集合(読み取り専用の抽出。操作は既存ストアで行う)。
+export function dueBacklog(tasks, today, weekStart): Task[];   // 期限超過 + 今週期限の未完了
+export function staleQ2(tasks, nowMs, staleDays): Task[];      // 第2領域で放置 or 未進捗
+export function reviewBacklog(tasks, today): Task[];           // 保留・待ちで reviewAt<=today or 未設定
+export function inboxTasks(tasks): Task[];                     // importance/urgency が null
+// plan ステップは候補一覧(第2領域・未着手など)から「今日やる」を付ける UI。
+```
+
+- UI: モーダルではなく全面オーバーレイ。ヘッダーに進捗(`step n / 6`)と「次へ / 戻る / スキップ」。各ステップは
+  対象リスト + その場操作(期限変更・完了・状態変更・象限割当・工数設定・「今日やる」設定)を既存コンポーネント
+  (DetailPanel の部品 / インライン操作)で提供。すべて楽観更新で即反映。
+- ステップ1「振り返り」は §12.6 の関数(今週/先週比・象限バランス・計画遵守率)を表示。
+- 完了時に `settingsStore.update('lastReviewAt', nowISO)`。起動時は「前回レビュー: ◯日前」を Today/統計に出す。
+- 起動は Today / 統計のボタン + コマンドパレット(`uiStore.reviewOpen` をトグル)。
+
+リマインド(Rust 改修なし、アプリ内バナー):
+
+```typescript
+// 当週の対象曜日を過ぎ、かつ当週まだレビューしていなければ true。
+export function dueForWeeklyReview(
+  setting: WeeklyReviewSetting, today: string, lastReviewAt: string | null, weekStart: WeekStart,
+): boolean;
+```
+
+- `weeklyReview.enabled` のとき、起動時と日付変更監視(§5.4 の `setInterval`)で `dueForWeeklyReview` を評価し、
+  真ならヘッダー/Today にバナーを出す(`time` は当日内の表示順序の目安。OS トースト発火は将来 scheduler 拡張)。
+- 既存の通知(§4.6, due/review)とは独立。scheduler.rs / notifications.ts は変更しない。
+
+### 12.8 設定([settingsStore.ts](../src/stores/settingsStore.ts) / [SettingsView.tsx](../src/components/settings/SettingsView.tsx))
+
+- 追加キーはすべて **DB 内 settings**(AppSettings)で完結。DB を開く前に要る値ではないため settings.json
+  ミラーは不要(§3 実装メモの判断と同じ)。`settingsStore.update(key, value)` をそのまま使う。
+- 設定画面に節を追加: 工数(S/M/L/XL の分)/ Today(可処分時間・Q1 自動取り込み)/ 統計(週起点)/
+  週次レビュー(毎週リマインドの有無・曜日・時刻)。`lastReviewAt` は表示のみ(記録用、ユーザー編集不可)。
+
+### 12.9 テスト(vitest)
+
+- `effort.test.ts`: 換算・未見積り null・設定変更追従。
+- `today.test.ts`: グループ分け(複数バッジ)/ 規定順ソート / picks の today_order 順 / auto と picks の重複排除 /
+  繰り越し差分(完了済みは据置)/ 容量集計(未見積り別建て・超過)。
+- `stats.test.ts`(追記): 週丸め(月/日起点・年跨ぎ)/ スループット(件数+分)/ 作成vs完了 / Q2リードタイム中央値
+  (偶数件)/ 計画遵守率(繰り越し後の todayDate 基準)/ 未見積り率 / 放置上位。
+- `review.test.ts`: 各ステップの対象抽出境界 / `dueForWeeklyReview`(曜日前後・当週レビュー済み・無効時)。
+- `migrations.test.ts`(追記): v5/v6 適用後のスキーマ・`effort_size` CHECK 制約・`today_*` 列・インデックス。

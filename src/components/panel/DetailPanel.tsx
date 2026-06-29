@@ -14,8 +14,10 @@ import { useTaskStore } from "../../stores/taskStore";
 import { useTemplateStore } from "../../stores/templateStore";
 import { useUiStore } from "../../stores/uiStore";
 import {
+  EFFORT_SIZES,
   STATUSES,
   STATUS_LABELS,
+  type EffortSize,
   type Status,
   type Task,
 } from "../../types/models";
@@ -36,6 +38,8 @@ function PanelInner({ task }: { task: Task }) {
   const patch = useTaskStore((s) => s.patch);
   const setStatus = useTaskStore((s) => s.setStatus);
   const setTags = useTaskStore((s) => s.setTags);
+  const setEffort = useTaskStore((s) => s.setEffort);
+  const setToday = useTaskStore((s) => s.setToday);
   const remove = useTaskStore((s) => s.remove);
   const select = useUiStore((s) => s.select);
   const statusColors = useSettingsStore((s) => s.settings.statusColors);
@@ -63,6 +67,7 @@ function PanelInner({ task }: { task: Task }) {
       bymonthday: recurRule.bymonthday,
       anchorDate: recurRule.anchorDate,
       category: task.category,
+      effortSize: task.effortSize,
       tagIds: task.tagIds,
       // この詳細パネルのタスク自身が anchor 当日ぶんを担うため、次回以降から生成する
       skipAnchorOccurrence: true,
@@ -165,6 +170,50 @@ function PanelInner({ task }: { task: Task }) {
             value={task.dueDate ?? ""}
             onChange={(e) => void patch(task.id, { dueDate: e.target.value || null })}
           />
+        </div>
+
+        {/* 工数(仕様 §4.10) */}
+        <div>
+          <label className="block text-xs text-slate-500 dark:text-slate-400 mb-1">工数</label>
+          <div className="flex gap-1">
+            <button
+              className={`text-xs px-2.5 py-1 rounded border transition-colors ${
+                task.effortSize === null
+                  ? "bg-indigo-500 text-white border-transparent"
+                  : "text-slate-600 dark:text-slate-200 border-slate-300 dark:border-slate-600"
+              }`}
+              onClick={() => void setEffort([task.id], null)}
+            >
+              未見積り
+            </button>
+            {EFFORT_SIZES.map((sz: EffortSize) => (
+              <button
+                key={sz}
+                className={`text-xs px-2.5 py-1 rounded border font-semibold transition-colors ${
+                  task.effortSize === sz
+                    ? "bg-indigo-500 text-white border-transparent"
+                    : "text-slate-600 dark:text-slate-200 border-slate-300 dark:border-slate-600"
+                }`}
+                onClick={() => void setEffort([task.id], sz)}
+              >
+                {sz}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* 今日やる(仕様 §4.9) */}
+        <div>
+          <button
+            className={`w-full text-sm py-1.5 rounded border transition-colors ${
+              task.todayDate !== null
+                ? "bg-indigo-50 dark:bg-indigo-900/30 border-indigo-300 dark:border-indigo-700 text-indigo-700 dark:text-indigo-300"
+                : "border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700"
+            }`}
+            onClick={() => void setToday([task.id], task.todayDate === null)}
+          >
+            {task.todayDate !== null ? "★ 今日やる(解除)" : "☆ 今日やるに追加"}
+          </button>
         </div>
 
         {/* カテゴリ(Redmine エクスポート用, §4.8) */}

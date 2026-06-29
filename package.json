@@ -1,7 +1,7 @@
 {
   "name": "quadrith",
   "private": true,
-  "version": "0.4.0",
+  "version": "0.5.0",
   "type": "module",
   "description": "重要度・緊急度・状態の3軸でタスクを管理する Windows 向けデスクトップアプリ",
   "license": "MIT",

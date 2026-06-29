@@ -10,6 +10,7 @@ import { useUiStore, type View } from "../../stores/uiStore";
 import { STATUSES, STATUS_LABELS } from "../../types/models";
 
 const VIEW_LABELS: { view: View; label: string; keywords: string }[] = [
+  { view: "today", label: "Today", keywords: "today focus フォーカス" },
   { view: "matrix", label: "マトリクス", keywords: "matrix" },
   { view: "kanban", label: "カンバン", keywords: "kanban" },
   { view: "recurring", label: "繰り返し", keywords: "recurring" },
@@ -23,6 +24,7 @@ export function CommandPalette() {
   const setOpen = useUiStore((s) => s.setPaletteOpen);
   const setView = useUiStore((s) => s.setView);
   const select = useUiStore((s) => s.select);
+  const setReviewOpen = useUiStore((s) => s.setReviewOpen);
   const selectedIds = useUiStore((s) => s.selectedIds);
 
   const tasks = useTaskStore((s) => s.tasks);
@@ -30,6 +32,7 @@ export function CommandPalette() {
   const add = useTaskStore((s) => s.add);
   const setStatus = useTaskStore((s) => s.setStatus);
   const setTags = useTaskStore((s) => s.setTags);
+  const setToday = useTaskStore((s) => s.setToday);
   const moveTo = useTaskStore((s) => s.moveTo);
   const removeMany = useTaskStore((s) => s.removeMany);
 
@@ -70,10 +73,31 @@ export function CommandPalette() {
       });
     }
 
+    // 週次レビューを開始
+    cmds.push({
+      id: "review-start",
+      title: "週次レビューを開始",
+      hint: "レビュー",
+      keywords: "review weekly 振り返り",
+      run: () => setReviewOpen(true),
+    });
+
     // ② 選択中タスクへの操作(1件以上選択時のみ)
     if (selectedIds.length > 0) {
       const n = selectedIds.length;
       const selectedTasks = tasks.filter((t) => selectedIds.includes(t.id));
+      cmds.push({
+        id: "today-add",
+        title: `選択中(${n})を今日やるに追加`,
+        hint: "Today",
+        run: () => void setToday(selectedIds, true),
+      });
+      cmds.push({
+        id: "today-del",
+        title: `選択中(${n})を今日やるから解除`,
+        hint: "Today",
+        run: () => void setToday(selectedIds, false),
+      });
       for (const st of STATUSES) {
         cmds.push({
           id: `status:${st}`,
@@ -128,7 +152,7 @@ export function CommandPalette() {
     }
 
     return cmds;
-  }, [selectedIds, tasks, tags, setView, setStatus, setTags, moveTo, removeMany, select]);
+  }, [selectedIds, tasks, tags, setView, setStatus, setTags, setToday, moveTo, removeMany, select, setReviewOpen]);
 
   const filtered = useMemo(() => filterCommands(commands, query), [commands, query]);
 

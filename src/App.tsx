@@ -19,6 +19,8 @@ import { DetailPanel } from "./components/panel/DetailPanel";
 import { RecurringView } from "./components/recurring/RecurringView";
 import { SettingsView } from "./components/settings/SettingsView";
 import { StatsView } from "./components/stats/StatsView";
+import { TodayView } from "./components/today/TodayView";
+import { ReviewBanner, ReviewWizard } from "./components/review/ReviewWizard";
 import { listBackups, restoreBackup } from "./lib/backup";
 import {
   checkDbAvailability,
@@ -109,10 +111,11 @@ export default function App() {
         const today = todayLocal();
         if (today !== lastDate) {
           lastDate = today;
-          // 日付が変わったら当日発生分を生成し、通知予定も更新する(設計書 §5.7)
+          // 日付が変わったら当日発生分を生成し、今日やるを繰り越し、通知予定も更新する(設計書 §5.7 / 仕様 §4.9)
           void useTemplateStore
             .getState()
             .generateDue(today)
+            .then(() => useTaskStore.getState().carryOverToday())
             .finally(() => void syncDueNotifications());
         }
       }, 60_000);
@@ -133,6 +136,9 @@ export default function App() {
         if (cancelled) return;
         // 定期タスクの発生分を生成(設計書 §5.7)。タスク読込後に行う(重複防止のため)
         await useTemplateStore.getState().generateDue(todayLocal());
+        if (cancelled) return;
+        // 未完了の「今日やる」を当日へ繰り越す(仕様 §4.9)
+        await useTaskStore.getState().carryOverToday();
         if (cancelled) return;
         await setupAfterReady();
         if (cancelled) return;
@@ -302,6 +308,7 @@ export default function App() {
             <TagFilterChips />
           </div>
         )}
+        <ReviewBanner />
       </header>
 
       <div className="flex flex-1 min-h-0">
@@ -312,6 +319,7 @@ export default function App() {
               <InboxLane />
             </>
           )}
+          {view === "today" && <TodayView />}
           {view === "kanban" && <KanbanView />}
           {view === "recurring" && <RecurringView />}
           {view === "archive" && <ArchiveView />}
@@ -325,6 +333,7 @@ export default function App() {
       <DragOverlay />
       <CardContextMenu />
       <CommandPalette />
+      <ReviewWizard />
       <ToastContainer />
       <ResizeHandles />
     </div>

@@ -18,7 +18,8 @@ export interface ReminderItem {
 
 export const STALE_Q2_DAYS = 14; // 第2領域をこの日数放置したらリマインド
 
-function daysSince(iso: string, nowMs: number): number {
+// 基準時刻(nowMs)から見た iso の経過日数。stats / review でも放置日数の算出に使う。
+export function daysSince(iso: string, nowMs: number): number {
   return Math.floor((nowMs - Date.parse(iso)) / 86_400_000);
 }
 
